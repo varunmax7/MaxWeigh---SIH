@@ -6,5 +6,5 @@
  * a stored observation records the schemaVersion it was written against.
  */
 
-/** Version stamped onto every observation payload written by this build. */
-export const OBSERVATION_SCHEMA_VERSION = 1 as const;
+export * from './observations.js';
+export * from './primitives.js';

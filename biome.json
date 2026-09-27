@@ -74,7 +74,13 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts", "**/*.test.tsx", "scripts/**", "**/vitest.config.ts"],
+      "includes": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "scripts/**",
+        "**/vitest.config.ts",
+        "packages/*/src/demo.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {

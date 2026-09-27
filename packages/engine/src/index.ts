@@ -1,16 +1,21 @@
 /**
- * @tula/engine — pure OIML R 76 calculation engine.
+ * @tula/engine — pure OIML R 76 calculation engine (implementation.md §4).
  *
- * Binding constraints (implementation.md §3.2, §11):
- *  - zero internal imports, zero I/O;
- *  - all masses and errors are Decimal internally and strings at boundaries;
- *  - constants come only from a rule pack, never from this source.
- *
- * P1 replaces this placeholder with the full API of §4.10.
+ * Zero I/O, zero internal package imports. Same inputs → same verdict in the
+ * browser and on the server; the server's result is authoritative and is
+ * persisted with `ENGINE_VERSION` and the pinned `rulepackId@version`.
  */
 
-/** Semantic version of the calculation engine, persisted alongside every result. */
-export const ENGINE_VERSION = '0.1.0' as const;
-
-/** Rule-pack identifier expected by the P1 implementation. */
-export const DEFAULT_RULEPACK_ID = 'oiml-r76-1-2006' as const;
+export * from './classification.js';
+export * from './decimal.js';
+export * from './error.js';
+export * from './explain.js';
+export * from './mpe.js';
+export * from './planner.js';
+export * from './registry.js';
+export * from './rulepack.js';
+export * from './standards.js';
+export * from './types.js';
+export * from './units.js';
+export * from './verdict.js';
+export * from './version.js';

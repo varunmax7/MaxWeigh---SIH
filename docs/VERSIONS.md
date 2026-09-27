@@ -15,7 +15,9 @@ produces the same binary behaviour a certificate was issued under.
 | Turborepo | 2.11.4 |
 | Biome | 2.5.14 |
 | Vitest | 5.0.2 |
-| tsx | 4.21.1 |
+| tsx | 4.23.13 |
+| fast-check | 4.10.2 |
+| @vitest/coverage-v8 | 5.0.2 |
 
 ## Application dependencies
 
@@ -31,6 +33,12 @@ produces the same binary behaviour a certificate was issued under.
 | dotenv | 18.0.4 | packages/config |
 | pg-boss | 12.35.0 | apps/worker |
 | pino / pino-pretty | 10.3.1 / 13.1.3 | apps/worker |
+
+`tsx` is also a root devDependency, used to run `scripts/check-no-float-mass.ts`
+and `scripts/gen-methodology.ts`. The root `package.json` additionally depends
+on `@tula/engine` and `@tula/rulepacks` (workspace) so the methodology
+generator can import them; `fast-check` and `@vitest/coverage-v8` are
+devDependencies of `packages/engine` only.
 
 ## Infrastructure images
 

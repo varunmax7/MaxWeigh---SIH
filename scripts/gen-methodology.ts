@@ -1,0 +1,197 @@
+#!/usr/bin/env tsx
+/**
+ * Generates `docs/CALCULATION_METHODOLOGY.md` from the live rule pack
+ * (implementation.md §10, P1 task list) — tables and the worked example are
+ * computed through `@tula/engine` and `@tula/rulepacks`, not retyped by hand,
+ * so the document can never drift from the constants it describes.
+ *
+ * Run: pnpm tsx scripts/gen-methodology.ts
+ */
+import { writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { AccuracyClass, InstrumentMetrology } from '@tula/engine';
+import { correctedError, ENGINE_VERSION, errorOfIndication, mpe } from '@tula/engine';
+import { OIML_R76_1_2006, OIML_R111_WEIGHTS } from '@tula/rulepacks';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const rulepack = OIML_R76_1_2006;
+const CLASSES: AccuracyClass[] = ['I', 'II', 'III', 'IIII'];
+
+function classificationTable(): string {
+  const rows = [
+    '| Class | e range | n min | n max | Min (lower limit) | Clause |',
+    '|---|---|---|---|---|---|',
+  ];
+  for (const cls of CLASSES) {
+    for (const band of rulepack.classification[cls]) {
+      const eRange = band.eMax ? `${band.eMin} g ≤ e ≤ ${band.eMax} g` : `${band.eMin} g ≤ e`;
+      rows.push(
+        `| ${cls} | ${eRange} | ${band.nMin} | ${band.nMax ?? '—'} | ${band.minE} × e | Table 3 |`,
+      );
+    }
+  }
+  return rows.join('\n');
+}
+
+function mpeTable(): string {
+  const rows = ['| Class | ±0.5 e | ±1.0 e | ±1.5 e |', '|---|---|---|---|'];
+  for (const cls of CLASSES) {
+    const bands = rulepack.mpeBands[cls];
+    const boundary = (i: number) => bands[i]?.upToE ?? null;
+    rows.push(
+      `| ${cls} | 0 ≤ m ≤ ${boundary(0)} | ${boundary(0)} < m ≤ ${boundary(1)} | m > ${boundary(1)} |`,
+    );
+  }
+  return rows.join('\n');
+}
+
+function testCatalogTable(): string {
+  const rows = ['| Code | Title | Clause | MVP |', '|---|---|---|---|'];
+  for (const test of rulepack.tests) {
+    rows.push(`| \`${test.code}\` | ${test.title} | ${test.clause} | ${test.mvp ? '✓' : ''} |`);
+  }
+  return rows.join('\n');
+}
+
+function limitsTable(): string {
+  const l = rulepack.limits;
+  const rows = ['| Limit | Value | Clause |', '|---|---|---|'];
+  rows.push(`| Zero-setting accuracy | ${l.zeroSettingAccuracyE} e | 4.5.2 |`);
+  rows.push(`| Discrimination extra load | ${l.discriminationExtraD} d | 3.8 |`);
+  rows.push(`| Creep, 0–30 min | ${l.creep30MinMaxE} e | 3.9.4.1 |`);
+  rows.push(`| Creep, 15–30 min | ${l.creep15to30MaxE} e | 3.9.4.1 |`);
+  rows.push(`| Zero return | ${l.zeroReturnMaxE} e | 3.9.4.2 |`);
+  rows.push(`| Tare accuracy | ${l.tareAccuracyE} e | 4.6 |`);
+  rows.push(`| Tilting, no load | ${l.tiltNoLoadMaxE} e | 3.9.1 |`);
+  rows.push(`| Standards adequacy divisor | ${l.standardsAdequacyDivisor} | 3.7.1 |`);
+  rows.push(`| Suspect-reading multiple | ${l.suspectReadingMpeMultiple} × mpe | 4.5 |`);
+  return rows.join('\n');
+}
+
+function weightTableExcerpt(): string {
+  const classes = ['E2', 'F1', 'F2', 'M1', 'M2', 'M3'] as const;
+  const rows = [
+    `| Nominal | ${classes.join(' | ')} |`,
+    `|---|${classes.map(() => '---').join('|')}|`,
+  ];
+  for (const row of OIML_R111_WEIGHTS.rows) {
+    rows.push(`| ${row.nominal} g | ${classes.map((c) => `${row.mpeMg[c]} mg`).join(' | ')} |`);
+  }
+  return rows.join('\n');
+}
+
+function workedExample(): string {
+  const instrument: InstrumentMetrology = {
+    accuracyClass: 'III',
+    kind: 'single',
+    ranges: [{ max: '30000', e: '5', d: '5' }],
+    min: '100',
+    tempRange: { lowC: -10, highC: 40 },
+    isElectronic: true,
+    hasTareDevice: false,
+    hasZeroTracking: false,
+    loadReceptor: { kind: 'platform', supports: 4 },
+    levelIndicator: true,
+    tiltSusceptible: false,
+    powerSupply: { mains: { vNom: 230, fNomHz: 50 } },
+    displayUnit: 'g',
+  };
+  const range = instrument.ranges[0];
+  if (!range) throw new Error('unreachable');
+
+  const zero = errorOfIndication({ L: '50', I: '50', deltaL: '3.0' }, range, rulepack);
+  const rows = [
+    { L: '10000', I: '10000', deltaL: '1.5' },
+    { L: '30000', I: '30005', deltaL: '0.5' },
+    { L: '2500', I: '2505', deltaL: '4.5' },
+  ];
+
+  const table = [
+    '| L (g) | I (g) | ΔL (g) | P (g) | E (g) | Ec (g) | mpe (g) | Verdict |',
+    '|---|---|---|---|---|---|---|---|',
+  ];
+  for (const row of rows) {
+    const { P, E } = errorOfIndication(row, range, rulepack);
+    const Ec = correctedError(E, zero.E);
+    const mpeResult = mpe(instrument, row.L, rulepack);
+    const verdict = Ec.abs().lte(mpeResult.value) ? 'PASS' : 'FAIL';
+    table.push(
+      `| ${row.L} | ${row.I} | ${row.deltaL} | ${P} | ${E} | ${Ec.toFixed()} | ${mpeResult.value} | ${verdict} |`,
+    );
+  }
+
+  return [
+    `Zero reference: L = 50 g, I = 50 g, ΔL = 3.0 g → P = ${zero.P} g, **E0 = ${zero.E} g**.`,
+    '',
+    table.join('\n'),
+  ].join('\n');
+}
+
+const doc = `# Tula — calculation methodology
+
+> **Generated by \`scripts/gen-methodology.ts\` from rule pack \`${rulepack.id}@${rulepack.version}\`
+> and engine \`${ENGINE_VERSION}\`. Do not hand-edit — change the rule pack or the engine and
+> regenerate: \`pnpm tsx scripts/gen-methodology.ts\`.**
+>
+> This paraphrases OIML R 76-1:2006 for engineering reference; it is not a substitute for the
+> official text. Source: ${rulepack.verification.source}.
+> Verified against the source PDFs: ${rulepack.verification.verifiedBy ? `by ${rulepack.verification.verifiedBy} on ${rulepack.verification.verifiedAt}` : '**not yet — see implementation.md §4.12**'}.
+
+## 1. Classification (Table 3)
+
+${classificationTable()}
+
+Additional rules (clause 3.4): \`e\` and \`d\` must be \`1×10ᵏ\`, \`2×10ᵏ\` or \`5×10ᵏ\`. Auxiliary
+indication (\`d < e\`) is allowed only for classes ${rulepack.limits.auxiliaryIndication.allowedClasses.join(', ')},
+requires \`e\` to be a power of ten in kg, and \`d < e ≤ ${rulepack.limits.auxiliaryIndication.maxDToERatio} d\`.
+
+## 2. Maximum permissible error (Table 6)
+
+MPE is expressed as a multiple of \`e\`, banded by \`m = load / e\`:
+
+${mpeTable()}
+
+In-service MPE = **${rulepack.inServiceFactor} × initial MPE** (clause 3.5.2).
+
+## 3. Error of indication (clause 4.5)
+
+**Change-point method** (\`d = e\`):
+
+\`\`\`
+P  = I + ½e − ΔL
+E  = P − L
+Ec = E − E0
+\`\`\`
+
+**Direct method** (\`d ≤ 0.2 e\`, high-resolution/service indication): \`P = I\`, \`E = I − L\`.
+
+A row passes when \`|Ec| ≤ mpe(L)\`, inclusive, compared before any display rounding.
+
+### Worked example — class III, Max 30 kg, e = d = 5 g
+
+${workedExample()}
+
+## 4. Test catalog
+
+${testCatalogTable()}
+
+## 5. Key numeric limits
+
+${limitsTable()}
+
+## 6. Standards adequacy (clause 3.7.1)
+
+The combined R 111 MPE of the standard weights used at a load must not exceed
+\`mpe(L) / ${rulepack.limits.standardsAdequacyDivisor}\`.
+
+${weightTableExcerpt()}
+
+## Glossary
+
+See implementation.md Appendix B.
+`;
+
+const outPath = join(repoRoot, 'docs', 'CALCULATION_METHODOLOGY.md');
+writeFileSync(outPath, doc);
+console.log(`Wrote ${outPath}`);

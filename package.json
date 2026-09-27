@@ -2,7 +2,7 @@
   "name": "tula",
   "private": true,
   "version": "0.1.0",
-  "description": "Tula \u2014 OIML R 76 NAWI type-evaluation and test report system",
+  "description": "Tula — OIML R 76 NAWI type-evaluation and test report system",
   "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=22"
@@ -20,7 +20,9 @@
     "infra:up": "docker compose -f infra/docker-compose.yml --env-file .env up -d",
     "infra:down": "docker compose -f infra/docker-compose.yml --env-file .env down",
     "infra:ps": "docker compose -f infra/docker-compose.yml --env-file .env ps",
-    "infra:logs": "docker compose -f infra/docker-compose.yml --env-file .env logs -f"
+    "infra:logs": "docker compose -f infra/docker-compose.yml --env-file .env logs -f",
+    "check:no-float-mass": "tsx scripts/check-no-float-mass.ts",
+    "gen:methodology": "tsx scripts/gen-methodology.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
@@ -37,5 +39,9 @@
       "@tailwindcss/oxide",
       "unrs-resolver"
     ]
+  },
+  "dependencies": {
+    "@tula/engine": "workspace:*",
+    "@tula/rulepacks": "workspace:*"
   }
 }

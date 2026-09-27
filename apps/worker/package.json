@@ -2,7 +2,7 @@
   "name": "@tula/worker",
   "version": "0.1.0",
   "private": true,
-  "description": "Tula background worker \u2014 report rendering, signing, thumbnails, analytics",
+  "description": "Tula background worker — report rendering, signing, thumbnails, analytics",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
