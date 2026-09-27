@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Values the workspace validates at startup; safe placeholders for CI.
+  DATABASE_URL: postgres://tula:tula@localhost:5432/tula
+  APP_URL: http://localhost:3000
+  AUTH_SECRET: ci-secret-ci-secret-ci-secret-32x
+  S3_ENDPOINT: http://localhost:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: tula
+  S3_ACCESS_KEY: tula
+  S3_SECRET_KEY: tula-secret
+  SMTP_URL: smtp://localhost:1025
+  PRINT_TOKEN_SECRET: ci-print-ci-print-ci-print-3232x
+
+jobs:
+  verify:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tula
+          POSTGRES_PASSWORD: tula
+          POSTGRES_DB: tula
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tula -d tula"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable Postgres extensions
+        run: |
+          PGPASSWORD=tula psql -h localhost -U tula -d tula \
+            -c 'CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pgcrypto;'
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

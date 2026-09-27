@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/*
+ * Tula design tokens (implementation.md §7.2).
+ * This is the only file in the app allowed to contain raw colour values.
+ * Everything else refers to a token through a Tailwind utility or var().
+ */
+
+:root {
+  /* Base */
+  --background: #f4f6fa; /* cool paper */
+  --foreground: #161c2d; /* ink */
+  --card: #ffffff;
+  --card-foreground: #161c2d;
+  --muted: #eceff5;
+  --muted-foreground: #5a6378;
+  --border: #dce1ea;
+  --input: #c9d0dd;
+  --ring: #3445a8;
+  --primary: #1a2560; /* Ashoka navy */
+  --primary-foreground: #ffffff;
+  --secondary: #e7eaf6;
+  --secondary-foreground: #1a2560;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+
+  /* Metrology semantics — text colour / tint background, all >= 4.5:1 */
+  --pass: #137340;
+  --pass-bg: #e4f4ea;
+  --fail: #b42318;
+  --fail-bg: #fde9e7;
+  --pending: #8a5a00;
+  --pending-bg: #fff3d6;
+  --active: #3445a8;
+  --active-bg: #e7eaf6;
+  --seal: #7a5a14; /* brass — sealed / signed / VALID only */
+  --seal-bg: #f6efdd;
+
+  /* MPE envelope chart */
+  --envelope-fill: #e7eaf6;
+  --envelope-edge: #9aa6d6;
+  --series-up: #1a2560;
+  --series-down: #0e7c86;
+
+  --radius-panel: 8px;
+  --radius-control: 6px;
+  --radius-chip: 4px;
+
+  /* TODO(P3): replace with self-hosted IBM Plex Sans / Mono (§7.3). */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-pass: var(--pass);
+  --color-pass-bg: var(--pass-bg);
+  --color-fail: var(--fail);
+  --color-fail-bg: var(--fail-bg);
+  --color-pending: var(--pending);
+  --color-pending-bg: var(--pending-bg);
+  --color-active: var(--active);
+  --color-active-bg: var(--active-bg);
+  --color-seal: var(--seal);
+  --color-seal-bg: var(--seal-bg);
+
+  --color-envelope-fill: var(--envelope-fill);
+  --color-envelope-edge: var(--envelope-edge);
+  --color-series-up: var(--series-up);
+  --color-series-down: var(--series-down);
+
+  --radius-panel: var(--radius-panel);
+  --radius-control: var(--radius-control);
+  --radius-chip: var(--radius-chip);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Measurements must align column-wise wherever they appear (§7.3). */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

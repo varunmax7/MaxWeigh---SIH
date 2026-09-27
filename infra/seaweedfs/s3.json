@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "tula",
+      "credentials": [
+        {
+          "accessKey": "tula",
+          "secretKey": "tula-secret"
+        }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}
