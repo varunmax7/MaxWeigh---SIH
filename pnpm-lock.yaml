@@ -296,6 +296,9 @@ importers:
       '@tula/schemas':
         specifier: workspace:*
         version: link:../schemas
+      canonicalize:
+        specifier: 5.1.0
+        version: 5.1.0
     devDependencies:
       '@types/node':
         specifier: 26.6.3

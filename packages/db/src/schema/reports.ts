@@ -4,6 +4,7 @@ import {
   boolean,
   char,
   check,
+  index,
   jsonb,
   pgTable,
   smallint,
@@ -90,6 +91,9 @@ export const approvals = pgTable(
   (table) => [
     enumCheck('approvals_decision_check', table.decision, APPROVAL_DECISIONS),
     check('approvals_tier_check', sql`${table.tier} between 1 and 3`),
+    // SoD-2 reads every approval on a version to check the three tiers are
+    // three distinct users (implementation.md §6.2).
+    index('approvals_version_idx').on(table.reportVersionId),
   ],
 );
 

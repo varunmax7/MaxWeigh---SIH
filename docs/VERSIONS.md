@@ -35,7 +35,7 @@ produces the same binary behaviour a certificate was issued under.
 | pino / pino-pretty | 10.3.1 / 13.1.3 | apps/worker |
 | drizzle-kit | 0.31.11 | packages/db (devDependency; `db:generate`) |
 | better-auth | 1.7.6 | packages/db (shared config + seed), apps/web |
-| canonicalize | 5.1.0 | packages/db (audit ledger hash chain, §9) |
+| canonicalize | 5.1.0 | packages/db (audit ledger hash chain, §9), packages/report (`model_sha256`, §6.3, P7) |
 | qrcode | 1.5.4 | apps/web (TOTP enrolment QR) |
 | shadcn | 4.21.0 | apps/web (component source generator; also a runtime import, `shadcn/tailwind.css`) |
 | radix-ui | 1.6.7 | apps/web (Radix's single consolidated package — the shadcn CLI's current default, not per-primitive `@radix-ui/react-*`) |

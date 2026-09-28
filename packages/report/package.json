@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "@tula/engine": "workspace:*",
-    "@tula/schemas": "workspace:*"
+    "@tula/schemas": "workspace:*",
+    "canonicalize": "5.1.0"
   },
   "devDependencies": {
     "@types/node": "26.6.3",

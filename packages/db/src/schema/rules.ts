@@ -1,5 +1,14 @@
 /** Rule packs, per-lab numbering sequences and notifications (implementation.md §5). */
-import { char, integer, jsonb, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  char,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import { user } from './auth.js';
 import { createdAtColumn, enumCheck, fkUuid, idColumn } from './columns.js';
 import { labs } from './labs.js';
@@ -50,13 +59,29 @@ export const numberSequences = pgTable(
   ],
 );
 
-export const notifications = pgTable('notifications', {
-  id: idColumn(),
-  userId: fkUuid('user_id')
-    .notNull()
-    .references(() => user.id),
-  type: text('type').notNull(),
-  payload: jsonb('payload').$type<Record<string, unknown>>(),
-  readAt: timestamp('read_at', { withTimezone: true }),
-  createdAt: createdAtColumn(),
-});
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: idColumn(),
+    userId: fkUuid('user_id')
+      .notNull()
+      .references(() => user.id),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    /**
+     * Set by the worker's `notify.email` job once the email has been handed
+     * to SMTP. The row is written inside the same transaction as the workflow
+     * transition it announces, and the worker picks it up afterwards, so a
+     * rolled-back transition can never produce an email and a committed one
+     * can never lose it (implementation.md §10 P7 "in-app + email via
+     * notify.email").
+     */
+    emailedAt: timestamp('emailed_at', { withTimezone: true }),
+    createdAt: createdAtColumn(),
+  },
+  (table) => [
+    index('notifications_user_unread_idx').on(table.userId, table.readAt),
+    index('notifications_unsent_idx').on(table.emailedAt),
+  ],
+);

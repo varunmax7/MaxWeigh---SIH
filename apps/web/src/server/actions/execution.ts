@@ -27,6 +27,7 @@ import { db } from '@/server/db';
 import { listTestEvidence } from '@/server/queries/execution';
 import { getSession } from '@/server/session';
 import { presignGetUrl } from '@/server/storage';
+import { testsAreLocked, toEvaluationStatus } from '@/server/workflow';
 
 async function loadTestAndEvaluation(tx: DbTx, testId: string) {
   const [row] = await tx
@@ -35,6 +36,21 @@ async function loadTestAndEvaluation(tx: DbTx, testId: string) {
     .innerJoin(evaluations, eq(evaluationTests.evaluationId, evaluations.id))
     .where(eq(evaluationTests.id, testId));
   return row ?? null;
+}
+
+/**
+ * §6.3 "Locking": from `PENDING_T1` onward every test is read-only, and stays
+ * so until a reviewer returns the report. Without this an evaluation already
+ * under review could have its observations changed underneath the signatories
+ * — the exact thing `model_sha256` is there to make impossible.
+ */
+function checkNotLocked(status: string) {
+  if (testsAreLocked(toEvaluationStatus(status))) {
+    throw new ActionError(
+      'CONFLICT',
+      'This evaluation is under review, so its tests are read-only. A reviewer must return it before anything can change.',
+    );
+  }
 }
 
 function checkRowVersion(actual: number, expected: number) {
@@ -61,6 +77,7 @@ export const startTestAction = action(
     const row = await loadTestAndEvaluation(tx, testId);
     if (!row) throw new ActionError('NOT_FOUND', 'Test not found.');
     await assertLabAccess(row.evaluation.labId);
+    checkNotLocked(row.evaluation.status);
 
     if (row.test.status === 'PENDING' || row.test.status === 'REOPENED') {
       await tx
@@ -73,10 +90,13 @@ export const startTestAction = action(
         .where(eq(evaluationTests.id, testId));
     }
 
-    if (row.evaluation.status === 'PLANNED') {
+    // §6.3: `PLANNED --> IN_TESTING: first test started`, and the same edge
+    // carries a returned evaluation back into testing once the tester opens
+    // one of the tests the reviewer reopened.
+    if (row.evaluation.status === 'PLANNED' || row.evaluation.status === 'RETURNED') {
       await tx
         .update(evaluations)
-        .set({ status: 'IN_TESTING' })
+        .set({ status: 'IN_TESTING', updatedAt: new Date() })
         .where(eq(evaluations.id, row.evaluation.id));
     }
 
@@ -108,6 +128,7 @@ export const saveObservationsAction = action(
     if (!row) throw new ActionError('NOT_FOUND', 'Test not found.');
     await assertLabAccess(row.evaluation.labId);
 
+    checkNotLocked(row.evaluation.status);
     if (row.test.status === 'COMPLETED') {
       throw new ActionError(
         'CONFLICT',
@@ -263,6 +284,7 @@ export const completeTestAction = action(
     const row = await loadTestAndEvaluation(tx, testId);
     if (!row) throw new ActionError('NOT_FOUND', 'Test not found.');
     await assertLabAccess(row.evaluation.labId);
+    checkNotLocked(row.evaluation.status);
     checkRowVersion(row.test.rowVersion, rowVersion);
 
     const blockers = await checkCompletionBlockers(tx, row.test, row.evaluation);
@@ -300,6 +322,7 @@ export const reopenTestAction = action(
     const row = await loadTestAndEvaluation(tx, testId);
     if (!row) throw new ActionError('NOT_FOUND', 'Test not found.');
     await assertLabAccess(row.evaluation.labId);
+    checkNotLocked(row.evaluation.status);
     if (row.test.status !== 'COMPLETED') {
       throw new ActionError('CONFLICT', 'Only a completed test can be reopened.');
     }

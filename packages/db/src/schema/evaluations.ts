@@ -174,19 +174,25 @@ export const attachments = pgTable(
   (table) => [enumCheck('attachments_kind_check', table.kind, ATTACHMENT_KINDS)],
 );
 
-export const comments = pgTable('comments', {
-  id: idColumn(),
-  evaluationId: fkUuid('evaluation_id')
-    .notNull()
-    .references(() => evaluations.id, { onDelete: 'cascade' }),
-  testId: fkUuid('test_id').references(() => evaluationTests.id, { onDelete: 'cascade' }),
-  rowRef: text('row_ref'),
-  parentId: fkUuid('parent_id').references((): AnyPgColumn => comments.id),
-  authorId: fkUuid('author_id')
-    .notNull()
-    .references(() => user.id),
-  tier: smallint('tier'),
-  body: text('body').notNull(),
-  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
-  createdAt: createdAtColumn(),
-});
+export const comments = pgTable(
+  'comments',
+  {
+    id: idColumn(),
+    evaluationId: fkUuid('evaluation_id')
+      .notNull()
+      .references(() => evaluations.id, { onDelete: 'cascade' }),
+    testId: fkUuid('test_id').references(() => evaluationTests.id, { onDelete: 'cascade' }),
+    rowRef: text('row_ref'),
+    parentId: fkUuid('parent_id').references((): AnyPgColumn => comments.id),
+    authorId: fkUuid('author_id')
+      .notNull()
+      .references(() => user.id),
+    tier: smallint('tier'),
+    body: text('body').notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: createdAtColumn(),
+  },
+  // The review screen reads every thread on one evaluation, and `return with
+  // comments` reads the unresolved ones to decide which tests to unlock.
+  (table) => [index('comments_evaluation_idx').on(table.evaluationId, table.resolvedAt)],
+);

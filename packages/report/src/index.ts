@@ -6,5 +6,5 @@
  * the two documents can never disagree (implementation.md §3.2, §8).
  */
 
-/** Version of the ReportModel shape; bumped when the snapshot layout changes. */
-export const REPORT_MODEL_VERSION = 1 as const;
+export * from './diff.js';
+export * from './model.js';

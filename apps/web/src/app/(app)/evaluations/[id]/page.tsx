@@ -1,5 +1,5 @@
 import { instrumentMetrologySchema } from '@tula/schemas';
-import { Pencil } from 'lucide-react';
+import { ClipboardCheck, Pencil } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -13,12 +13,24 @@ import {
   listEvaluationHistory,
   listEvaluationTests,
 } from '@/server/queries/evaluations';
+import { can } from '@/server/rbac';
 import { requireSession } from '@/server/session';
 import { CancelEvaluationButton } from './CancelEvaluationButton';
 import { HistoryTab } from './HistoryTab';
 import { InstrumentTab } from './InstrumentTab';
 import { OverviewTab } from './OverviewTab';
+import { SubmitForReviewButton } from './SubmitForReviewButton';
 import { TestPlanTab } from './TestPlanTab';
+
+/** Statuses where a report exists and the review screen has something to show. */
+const HAS_REPORT: readonly string[] = [
+  'PENDING_T1',
+  'PENDING_T2',
+  'PENDING_T3',
+  'RETURNED',
+  'ISSUED',
+  'AMENDING',
+];
 
 export async function generateMetadata({
   params,
@@ -47,6 +59,10 @@ export default async function EvaluationOverviewPage({
 
   const accuracyClass = instrumentMetrologySchema.safeParse(evaluation.specSnapshot);
   const canCancel = evaluation.status === 'DRAFT' || evaluation.status === 'PLANNED';
+  const canSubmit =
+    can(session.user.role, 'evaluation.submit') &&
+    (evaluation.status === 'IN_TESTING' || evaluation.status === 'RETURNED');
+  const hasReport = HAS_REPORT.includes(evaluation.status);
 
   return (
     <div className="space-y-6">
@@ -65,6 +81,15 @@ export default async function EvaluationOverviewPage({
                 </Link>
               </Button>
             ) : null}
+            {hasReport ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/evaluations/${evaluation.id}/review`}>
+                  <ClipboardCheck className="size-4" />
+                  Review
+                </Link>
+              </Button>
+            ) : null}
+            {canSubmit ? <SubmitForReviewButton evaluationId={evaluation.id} /> : null}
             {canCancel ? <CancelEvaluationButton evaluationId={evaluation.id} /> : null}
           </div>
         }

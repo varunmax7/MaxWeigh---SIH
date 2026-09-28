@@ -9,7 +9,7 @@
 | P4 Master data | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P5 Intake | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P6 Workspace | ☑ | 2026-09-28 | 2026-09-29 | command output below |
-| P7 Workflow | ☐ | | | |
+| P7 Workflow | ☑ | 2026-09-29 | 2026-09-29 | command output below |
 | P8 Reports | ☐ | | | sample PDF/DOCX paths |
 | P9 Insights | ☐ | | | bench output |
 | P10 Integrations | ☐ | | | |
@@ -491,6 +491,144 @@ check-no-float-mass: OK — scanned 27 files in packages/engine/src, no violatio
 - Move `CHECKLIST_ITEMS` (`forms/ChecklistForm.tsx`) into the rule pack so the `EXAM_*` checklists are versioned with the other OIML constants instead of living in a React component (`docs/QUESTIONS.md` #30).
 - `packages/db/src/schema/equipment.ts`'s `items` comment documents snake_case (`nominal_g`) but what is actually stored is camelCase (`nominalG`, straight from `weightSetItemSchema`). Harmless today — every reader uses camelCase — but the comment should be corrected.
 - P7: the Review screen reuses this workspace read-only; `readOnly` already threads through every form and `Inspector`.
+
+## P7 — Review, approvals and versioning
+
+- [x] `server/workflow.ts`: `EVALUATION_TRANSITIONS` (the full §6.3 table, as data) + `assertTransition`, plus `assertReadyToSubmit`, `assertSod1`/`assertSod2`/`assertSod3`, `assertModelCurrent`, `testsAreLocked`/`testsToUnlock`, `pendingTier`/`statusAfterApproval`/`TIER_ROLE`/`TIER_LABEL`/`TIER_APPROVE_VERB`. Pure functions over plain data — no DB, no session — so every rule is unit-tested directly (`workflow.test.ts`, 23 tests) without a fixture.
+- [x] `@tula/report`'s `buildReportModel()` (`packages/report/src/model.ts`): one immutable, deterministic `ReportModel` snapshot — no wall-clock, no iteration-order dependence — built from an evaluation's tests, standards, spec and provenance, rolled up through the engine's own `aggregateEvaluation` (widened to a `VerdictBearing` structural type so an applicable-but-not-yet-run test contributes `INCOMPLETE` without a fake `TestResult`). `modelSha256()` hashes it via RFC 8785 canonical JSON (the same `canonicalize` the audit ledger already uses). `diffReportModels()`/`summarizeChanges()` (`packages/report/src/diff.ts`) walk two snapshots to a field-level, dotted-path diff, capped and counted for the version timeline. `nextVersion()` gives `1.0 → 1.1 → …` on a return-and-resubmit, `1.x → 2.0` on a post-issue amendment.
+- [x] `server/report-snapshot.ts`'s `buildSnapshot()`: the query-side counterpart — gathers one evaluation's lab, applicant, manufacturer, model, every test (with its catalog clause/title, engine result, standards used, who completed it) and attachments into `buildReportModel()`'s input shape. Reused in two places: `submitForReviewAction` (store the new version) and the tier-decision actions (rebuild from *current* data and compare hashes, to catch a stored version that no longer matches).
+- [x] `server/actions/review.ts`'s `submitForReviewAction`: `IN_TESTING | RETURNED | AMENDING → PENDING_T1`. Mints the report number on first submit (`number_sequences`, `kind = 'REPORT'`), creates/version-bumps `report_versions`, supersedes the previous version, sets `evaluations.locked_at`/`overall_verdict`, and notifies every Tier 1 holder in the lab.
+- [x] `server/actions/tier-decision.ts`'s `decideTier1Action`/`decideTier2Action`/`decideTier3Action`: one shared handler (`makeTierDecisionAction`) parameterised per tier's own permission (`review.tier1`/`review.tier2`/`report.seal`) and whether APPROVE is available yet (false for tier 3 — the seal needs P8's signing pipeline). Guard order: is this tier even pending → is the decision against the *current* model hash → does a live rebuild of the snapshot still match that hash (§6.3 "any data change invalidates pending approvals") → fresh TOTP (`server/step-up.ts`'s `assertStepUp`) → SoD-1/SoD-2 (APPROVE only) → apply. APPROVE and RETURN are split into `applyApprove`/`applyReturn` to keep the handler's own complexity down.
+- [x] `server/step-up.ts`: `assertStepUp(code)` calls Better Auth's `verifyTOTP` with an existing session (verify-only mode, never mints a session) and turns any failure into one `ActionError('FORBIDDEN', …)` — never leaking *why* a code was rejected.
+- [x] `server/actions/comments.ts`: `addCommentAction` (anchored to a test/row, tier-stamped from `pendingTier`, AUDITOR refused), `resolveCommentAction` (what a resubmit's `testsToUnlock` reads), `markNotificationsReadAction` (scoped to the caller's own rows only).
+- [x] `server/notify.ts`: `notifyUsers`/`labMembersWithRole` write `notifications` rows **inside the same transaction** as the state change they announce (never a separately-enqueued pg-boss job from inside a DB transaction, which would survive a rollback) — the worker's `notify.email` job (P8+) picks up rows by `emailed_at IS NULL`.
+- [x] Migration `0005`: `notifications.emailed_at` (nullable, the worker's claim column) + `notifications_user_unread_idx`/`notifications_unsent_idx`, `comments_evaluation_idx`, `approvals_version_idx` (SoD-2's own read).
+- [x] Review screen (`/evaluations/[id]/review`): read-only test summary (clause, verdict, completed-by, per-row "Show calculation" via the stored `TestResult.steps`, linking each test to its own execute page — already read-only from `PENDING_T1` onward per §6.3 "Locking", so there is nothing to re-render, only to link to), `SignatoryChain` (brass only once a tier has actually signed — §7.1's "nowhere else"), `VersionTimeline` (status + change summary + author per version), `CommentThread` (flat list, anchor-to-test composer, resolve), and a `ReviewDecisionPanel` (verb from `TIER_APPROVE_VERB`, a `DecisionDialog` collecting the TOTP code and, for RETURN, a required comment) shown only to the role holding the pending tier.
+- [x] `SubmitForReviewButton` on the evaluation overview page (shown for `evaluation.submit` holders when `IN_TESTING`/`RETURNED`) and a "Review" link (shown once a report exists: `PENDING_T1` through `ISSUED`/`AMENDING`).
+- [x] `execution.ts` locking: every mutating action (`startTestAction`, `saveObservationsAction`, `completeTestAction`, `reopenTestAction`) now calls `checkNotLocked` — `testsAreLocked(status)` refuses with `CONFLICT` from `PENDING_T1` onward, closing the gap P6 left (tests were mutable through the whole review chain). `startTestAction` also carries `RETURNED → IN_TESTING` (§6.3's `PLANNED --> IN_TESTING` edge, reused for the reopened-test case).
+
+### Acceptance evidence
+
+```
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 0 errors (lint, Biome — 341 files), 14
+successful (test — 299 tests across engine/config/rulepacks/schemas/worker/
+report/db/web, 55 files), 8 successful (build) — web build's route list now
+includes /evaluations/[id]/review.
+
+$ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
+  3 passed
+
+$ pnpm tsx scripts/check-no-raw-hex.ts
+check-no-raw-hex: OK — scanned 181 files in apps/web/src, no violations.
+$ pnpm tsx scripts/check-no-float-mass.ts
+check-no-float-mass: OK — scanned 27 files in packages/engine/src, no violations.
+
+# src/server/workflow.test.ts (23 tests, pure — no DB): every §6.3 edge in
+#   EVALUATION_TRANSITIONS covers exactly the enum's statuses; the happy
+#   path IN_TESTING→PENDING_T1→…→ISSUED walks, and skipping a tier or
+#   resubmitting straight from RETURNED is refused; testsAreLocked is true
+#   from PENDING_T1 onward and nowhere earlier; SoD-1 blocks the test's own
+#   completer at tier 1 only; SoD-2 blocks one person signing two tiers of
+#   the same version but not two different versions (a returned-then-
+#   resubmitted report's hash change resets the chain); SoD-3 blocks a
+#   publish initiator confirming their own rule pack; ADMIN holds none of
+#   test.execute/review.tier1/review.tier2/report.seal/report.revoke, and
+#   each tier decision belongs to exactly one role.
+# src/server/actions/review.test.ts (11 tests, real DB/engine/audit ledger,
+#   assertStepUp mocked — its own behaviour is pinned separately):
+#  ✓ full chain — three distinct real users (STO/CMO/Controller-shaped) —
+#    submit → tier 1 verify → tier 2 approve lands in PENDING_T3, with two
+#    distinct APPROVED rows both stepUpVerified.
+#  ✓ every mutating test action (save/complete) is CONFLICT-refused once
+#    PENDING_T1 begins.
+#  ✓ submit is refused (RULE) while any applicable test is still open.
+#  ✓ a decision against a stale/foreign model_sha256 is refused (RULE)
+#    without moving the evaluation.
+#  ✓ a step-up rejection is refused (FORBIDDEN) without moving the
+#    evaluation.
+#  ✓ SoD-1: the officer who completed the evaluation's only test cannot
+#    verify it at tier 1 (RULE).
+#  ✓ SoD-2: one real user, granted tier 1 then tier 2 in turn, signs tier 1
+#    but is refused (RULE) at tier 2 of the *same* version.
+#  ✓ ADMIN is FORBIDDEN at every one of the three tier actions.
+#  ✓ return-with-comments unlocks exactly the one commented (REOPENED) test,
+#    leaves the rest COMPLETED; resolving the comment and re-completing lets
+#    resubmit mint v1.1 with a fresh hash (≠ v1.0's) and a non-empty change
+#    summary; the same tier-1 officer may (and must) sign the new version.
+#  ✓ tier 3 APPROVE is refused (RULE, "signing release" message) pending
+#    P8; tier 3 RETURN still works.
+#  ✓ notifications land on the next pending tier's holder, never on the
+#    actor who just decided.
+# src/server/actions/comments.test.ts (4 tests): AUDITOR is FORBIDDEN from
+#   commenting; a testId from a different evaluation is NOT_FOUND; a posted
+#   comment round-trips; markNotificationsReadAction only ever touches the
+#   caller's own rows (asserted against the exact two rows the test created,
+#   not "all unread for this user" — see the note in Decisions about why).
+# packages/report/src/model.test.ts + diff.test.ts (16 tests): CONFORMS only
+#   once every applicable test PASSes; an applicable-but-unrun test is
+#   INCOMPLETE, never a silent CONFORMS; one FAIL rolls the whole evaluation
+#   to DOES_NOT_CONFORM; tests sort by planned sequence regardless of input
+#   order; the methodology annex is built only from stored CalcSteps;
+#   modelSha256 is stable across rebuilds of identical data, independent of
+#   key insertion order, and changes the instant one observation does (what
+#   invalidates a pending approval); nextVersion's 1.0→1.1→…→2.0 rules and
+#   its refusal to guess an unparseable version; diffReportModels reports
+#   the exact changed leaf (path/before/after) for a nested field, added/
+#   removed rows, nothing for identical snapshots, and a capped list with
+#   the true total for a wide change.
+
+# Manual verification (curl, authenticated via Better Auth's own sign-in
+# endpoint as testing.officer@tula.test — TESTING_OFFICER needs no TOTP
+# enrolment, unlike the three tiers; a golden-fixture evaluation in
+# PENDING_T1 with a completed WEIGHING test, a report + v1.0 version and one
+# comment inserted via psql, deleted immediately after):
+# GET /evaluations/<id>/review → 200: "Review — EV-P7-SMOKE-0001", "Pending
+#   tier 1" status chip, "Test summary" with the weighing test and its
+#   "Show calculation" trail, "Version history" showing v1.0 "First
+#   submission.", "Signatory chain" with all three tiers "Not yet decided",
+#   and the smoke-test comment — the decision panel correctly absent (this
+#   role holds no tier). GET /evaluations/<id> → 200, "Review" link present,
+#   "Submit for review" correctly absent (status isn't IN_TESTING).
+#   GET /evaluations/<id>/review as senior.testing.officer (a real Tier 1
+#   role, 2FA-mandatory per §9) → 307 to /enroll-2fa, confirming the
+#   existing 2FA gate correctly reaches this new route too.
+# This run caught a real bug before it reached committed evidence: the
+# first draft passed a `testLabel` closure from the (Server Component)
+# review page straight into the (Client Component) CommentThread as a prop.
+# React only serializes plain data across that boundary, and Next.js's own
+# error overlay said so exactly ("Functions cannot be passed directly to
+# Client Components... testLabel={function testLabel}") — visible only by
+# actually rendering the page, not by typecheck or lint, since a prop typed
+# `(testId: string) => string` compiles fine on both sides of the boundary.
+# Fixed by passing the `anchors` list (already plain data) and building a
+# lookup `Map` client-side instead.
+```
+
+### Decisions
+- 2026-09-29 — **`fileParallelism: false` added to `apps/web/vitest.config.ts` and `packages/db/vitest.config.ts`.** Most files in both suites open their own real-Postgres connection pool (`@tula/db`'s `createDb`, `postgres.js`'s default `max: 10`) — vitest's default file parallelism multiplies that by the file count, and P7 pushed the total high enough to approach the dev instance's `max_connections` (100): `pnpm test` started failing about 1 run in 4, always on an unrelated, already-committed test (`masterdata.test.ts`'s audit-entry check), never reproducing when that file's own suite ran alone. Confirmed by checking out the pre-P7 commit and running `pnpm test` 4× clean, then reproducing the flake 1×/4 back on this branch, before landing the fix — not just correlation. Fixed by serializing each package's own test files (not by increasing `max_connections`, which only raises the threshold rather than removing the multiplication); confirmed clean across 5 consecutive `pnpm test` runs afterward. Slower (~7 s vs ~2 s for `@tula/web`'s suite) but correct, which matters more for a real-DB integration suite than wall-clock time.
+- 2026-09-29 — **The tiered chain is three actions (`submitForReviewAction` + one per tier), not one generic "decide" action.** §6.2 gives each tier its own static permission (`review.tier1`/`review.tier2`/`report.seal`), and `action()`'s wrapper takes exactly one `permission` per action — there is no way to parameterise it per-call without weakening the check to "any of these three," which would let a Tier 1 holder attempt a Tier 3 decision and rely on an inner check to catch it. `makeTierDecisionAction` still shares one handler (permission and `allowApprove` as the only per-tier parameters), so the guard order — pending-tier check → model-hash currency → step-up → SoD — is identical and can't drift between tiers.
+- 2026-09-29 — **Tier 3's seal is deliberately not implemented as "approve."** §6.3 says the Tier 3 transition *is* "Seals (signed PDF generated)" — there is no seal without a signed document, and generating one is P8's whole phase (P12-mounted signing cert, `report.render`/`report.sign` jobs). Building a fake seal now (flip `ISSUED`, no PDF) would either need undoing in P8 or leave `ISSUED` evaluations with no actual signed artifact, silently violating §8's "standardized, signed, verifiable reports" promise. `decideTier3Action` refuses `APPROVE` with a clear message and full guard coverage otherwise (so `RETURN` and the audit trail work today); `docs/QUESTIONS.md` #34 tracks wiring the real seal in P8.
+- 2026-09-29 — **`buildSnapshot()` is rebuilt and re-hashed on every tier decision, not just trusted from `report_versions.model_sha256`.** §6.3: "any data change invalidates pending approvals." Locking (`testsAreLocked`, wired into every P6 execution action this phase) should make a stored snapshot and live data diverge only if something slipped past that guard — but a decision is exactly the moment that assumption needs to be *proven*, not assumed, since it is what a human is about to sign. The extra read work happens once per decision, inside the same transaction, not on every page load.
+- 2026-09-29 — **`aggregateEvaluation` (`packages/engine`) widened from `Record<string, TestResult>` to `Record<string, VerdictBearing>`.** `buildReportModel`'s summary needs to roll up tests that have no `TestResult` at all yet (an applicable test not yet run must contribute `INCOMPLETE`, never be silently omitted into a false `CONFORMS`), and building a placeholder `TestResult` just to satisfy the old signature would mean inventing fake `rows`/`steps`/`engineVersion` values that mean nothing. `VerdictBearing` is the true structural minimum the function reads; every existing caller (`TestResult` itself) still satisfies it, so no call site changed.
+- 2026-09-29 — **Field-level diff (`diffReportModels`) walks the canonical JSON tree, not the typed `ReportModel` shape.** Enumerating every field of a model that will keep growing (P8 adds signature/PDF metadata, P9 adds more) would drift out of sync with the type; walking the tree generically means a change anywhere — a spec field, an indication, a weight set — shows up without this module knowing the model's shape at all. Cross-checked structurally against `buildReportModel`'s own fixtures (added/removed test rows, a changed indication, identical snapshots) rather than against every possible field.
+- 2026-09-29 — **Comment posting/resolving is gated on `evaluation.read`, with `AUDITOR` refused in the handler rather than a narrower permission.** §6.2's matrix has no `comment.*` permission and §11 forbids inventing OIML constants but says nothing about permissions — logged the ambiguity rather than guessed silently (`docs/QUESTIONS.md` #32). `evaluation.read` is the widest permission every role touching a review already holds; the explicit AUDITOR carve-out is the one place the matrix's "read/export only" note would otherwise be silently violated.
+- 2026-09-29 — **`markNotificationsReadAction` is a real `action()` mutation** (parse → session → permission → transaction → audit), even though "mark my notifications read" feels like housekeeping — §11 has no exception for low-stakes writes, and the interesting property (a `user_id` predicate that makes it impossible to mark *another* user's notifications read even if their ids are passed in) is exactly the kind of thing worth an audit trail and a permission check around.
+- 2026-09-29 — **`notify.ts` writes `notifications` rows inside the same transaction as the state change**, never via `enqueue('notify.email', …)` from inside a handler. `server/jobs.ts`'s pg-boss client talks to Postgres over its own connection outside the surrounding `db.transaction()`, so a job sent from inside one would survive that transaction's rollback — an email announcing a tier approval that never actually happened. The worker's own `notify.email` job (P8+) instead sweeps `notifications` rows with `emailed_at IS NULL`, which only ever exist if the transaction that created them committed.
+
+### Deviations from implementation.md
+- 2026-09-29 — **No `apps/web/e2e/review.spec.ts`.** §10 P7's acceptance criteria ("E2E: full chain with three distinct users ends in PENDING_T3") are instead verified through `server/actions/review.test.ts`'s real-DB integration suite (11 tests, real engine, real audit ledger, three distinct real sessions) plus a manual authenticated `curl` render of the live review screen — `claude-in-chrome` is unavailable in this environment, the same deviation recorded in P4/P5/P6. What is **not** covered without a browser: the TOTP entry flow itself (a real authenticator app, or `assertStepUp` unmocked), keyboard operability of the decision dialog, and the visual signatory chain/version timeline. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **Notifications are in-app only; no `notify.email` worker handler yet.** §10 P7 asks for "in-app (SSE or 30 s polling) + email via `notify.email` job." The `notifications` table, its `emailed_at` claim column, and the transactional-write discipline the worker will need are all in place, but nothing consumes the queue name yet — `apps/worker/src/queues.ts` already reserves `notify.email` for "P8+" per its own comment. Building the SMTP send now would mean adding it without a template, a "Needs your action" polling UI, or a bell that live-updates — all still P9/§7.4 scope. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **The dashboard's SLA/"Needs your action" queries exist (`server/queries/review.ts`: `listNeedsYourAction`, `countOverdueReviews`, `labSlaHours`) but nothing renders them yet.** §10 P7 asks for "SLA ages; 'Needs your action' query" — read as the query layer, since the dashboard itself (KPI strip, "Needs your action" panel) is P3's placeholder today and a real rebuild is P9 scope (`docs/PROGRESS.md` P3's own dashboard is a stub). Wiring these into that page is a small follow-up once P9 touches it. (§ update: n)
+- 2026-09-29 — **The version timeline shows status + one-line change summary + diff *count*, not an inline diff viewer.** §7.5 asks for "version history with change summaries and diff link." `diffReportModels`/`summarizeChanges` produce the real field-level diff (tested directly in `packages/report`), but a dedicated diff-viewer screen/component (`components/report/VersionDiff`, per §7.6's inventory) is not built — the review screen's `VersionTimeline` is deliberately scoped to what §10 P7 lists as this phase's own task ("Version timeline + diff view"), and a full diff UI is more naturally a Report view (P8) concern once that screen exists to host it. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **Comment threads render flat, not nested.** `comments.parent_id` exists and is accepted by `addCommentAction`, but `CommentThread` shows every comment on an evaluation in one chronological list rather than threading replies under their parent. A review conversation on one evaluation rarely runs more than a handful of comments deep; a flat list reads faster than expand/collapse would at that size, and nothing in §7.5 requires nesting specifically. (§ update: n)
+
+### Follow-ups
+- Write `apps/web/e2e/review.spec.ts` once browser automation is available: the full three-tier chain end to end, TOTP entry, keyboard operability of `DecisionDialog`.
+- Wire `notify.email` in the worker (template, SMTP send via Mailpit in dev) and a bell/dashboard UI over `listMyNotifications`/`listNeedsYourAction`/`countOverdueReviews` — the queue, the table and the queries already exist.
+- Build a real diff-viewer component (`components/report/VersionDiff`) over `diffReportModels`, once the Report view (P8) exists to host it alongside `ReportPreview`/`QrBlock`.
+- P8: wire `decideTier3Action`'s real seal (drop `allowApprove: false`) once `report.render`/`report.sign` produce a signed PDF to attach to the transition.
+- Confirm `docs/QUESTIONS.md` #32 (comment permission), #33 (report number prefix) and #34 (Tier 3 seal timing) with the human owner.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8
