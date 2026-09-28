@@ -1,4 +1,5 @@
 export { ClassBadge } from './ClassBadge';
+export { ClassificationPanel } from './ClassificationPanel';
 export { ErrorInE } from './ErrorInE';
 export { MassValue } from './MassValue';
 export { SealMark } from './SealMark';

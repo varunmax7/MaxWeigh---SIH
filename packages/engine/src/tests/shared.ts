@@ -192,7 +192,7 @@ export function buildTestResult(
 ): TestResult {
   const worst = maxAbsEc(rows);
   const summary: Record<string, Dec | string> = { ...extraSummary };
-  if (worst !== undefined) summary['maxAbsEc'] = toDec(worst);
+  if (worst !== undefined) summary.maxAbsEc = toDec(worst);
 
   const rowVerdict = verdictOverride ?? verdictFromRows(rows);
   const verdict: Verdict = extraIssues.some((issue) => issue.severity === 'error')

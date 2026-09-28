@@ -1,0 +1,2 @@
+ALTER TABLE "attachments" ALTER COLUMN "evaluation_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "reference_weight_sets" ADD CONSTRAINT "reference_weight_sets_cert_attachment_id_attachments_id_fk" FOREIGN KEY ("cert_attachment_id") REFERENCES "public"."attachments"("id") ON DELETE no action ON UPDATE no action;

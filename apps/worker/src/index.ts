@@ -1,9 +1,11 @@
 import { env, loadRootEnv } from '@tula/config';
 import { createDb } from '@tula/db';
 import { PgBoss } from 'pg-boss';
+import { makeThumbMake } from './jobs/thumb-make.js';
 import { makeVerifyAuditChain } from './jobs/verify-audit-chain.js';
 import { logger } from './logger.js';
 import { ALL_QUEUES, QUEUES } from './queues.js';
+import { createStorage } from './storage.js';
 
 /**
  * Tula background worker.
@@ -14,7 +16,8 @@ import { ALL_QUEUES, QUEUES } from './queues.js';
  */
 async function main(): Promise<void> {
   loadRootEnv();
-  const { DATABASE_URL } = env();
+  const config = env();
+  const { DATABASE_URL } = config;
 
   const boss = new PgBoss({ connectionString: DATABASE_URL, schema: 'pgboss' });
   boss.on('error', (error: unknown) => logger.error({ err: error }, 'pg-boss error'));
@@ -25,8 +28,11 @@ async function main(): Promise<void> {
   }
 
   const { db, sql } = createDb(DATABASE_URL);
+  const storage = createStorage(config);
+
   await boss.schedule(QUEUES.auditVerify, '0 2 * * *', null, { tz: 'Asia/Kolkata' });
   await boss.work(QUEUES.auditVerify, makeVerifyAuditChain(db));
+  await boss.work(QUEUES.thumbMake, makeThumbMake(db, storage));
 
   logger.info({ queues: ALL_QUEUES }, 'worker ready');
 

@@ -53,7 +53,7 @@ export const instrumentModels = pgTable(
     /** `InstrumentMetrology` (@tula/engine, implementation.md §4.2). */
     defaultSpec: jsonb('default_spec').$type<Record<string, unknown>>(),
     /** Indicator + load cell data (Annex F inputs). */
-    modules: jsonb('modules').$type<Record<string, unknown>>(),
+    modules: jsonb('modules').$type<Record<string, unknown>[]>(),
     createdAt: createdAtColumn(),
   },
   (table) => [

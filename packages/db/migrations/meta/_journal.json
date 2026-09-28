@@ -29,6 +29,13 @@
       "when": 1790568373748,
       "tag": "0003_trigram_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790584207904,
+      "tag": "0004_p4_nullable_attachment_evaluation_and_cert_fk",
+      "breakpoints": true
     }
   ]
 }

@@ -86,6 +86,6 @@ describe('notApplicable', () => {
   it('builds a NOT_APPLICABLE result carrying the reason', () => {
     const result = notApplicable(rulepack, 'Instrument has no tare device');
     expect(result.verdict).toBe('NOT_APPLICABLE');
-    expect(result.issues[0]?.params['reason']).toBe('Instrument has no tare device');
+    expect(result.issues[0]?.params.reason).toBe('Instrument has no tare device');
   });
 });

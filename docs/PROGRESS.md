@@ -6,7 +6,7 @@
 | P1 Engine | ☑ | 2026-09-28 | 2026-09-28 | coverage report + demo output below |
 | P2 Core | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P3 UI system | ☑ | 2026-09-28 | 2026-09-28 | docs/screens/p3/ |
-| P4 Master data | ☐ | | | |
+| P4 Master data | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P5 Intake | ☐ | | | |
 | P6 Workspace | ☐ | | | |
 | P7 Workflow | ☐ | | | |
@@ -261,6 +261,69 @@ Lint: 0 errors, 2 info-level style suggestions (pre-existing, packages/engine).
 - P9/P10: the sidebar's ledger status should surface the nightly `verifyChain()` job's actual last result, not just "a head hash exists" (`docs/QUESTIONS.md` #22).
 - A theme toggle (dark mode is fully tokened in `globals.css` but unreachable) — no phase currently calls for one; add if a screen spec ever does.
 - The screenshot script (`apps/web/scripts/screenshot-p3.ts`) is a one-off for this phase's acceptance evidence, not a generic tool — a future phase wanting the same treatment should either generalize it or write its own.
+
+## P4 — Master data and reference equipment
+
+- [x] Manufacturers and applicants (`instruments/ManufacturersPanel.tsx`, `ApplicantsPanel.tsx`): TanStack table, client-side search, create/edit dialogs via `server/actions/masterdata.ts`.
+- [x] Instrument models (`instruments/ModelsPanel.tsx`, `instruments/models/[id]/`): list + search, detail page with `SpecEditor` (`MassInput` fields mirroring `InstrumentMetrology`), live `ClassificationPanel` (calls `@tula/engine` via `lib/classify.ts`, never reimplements a rule), `ModulesEditor`, and a History tab (empty until P5, as scoped).
+- [x] Reference weight sets and env sensors (`instruments/WeightSetsPanel.tsx`, `EnvSensorsPanel.tsx` — split out of a single `ReferenceEquipmentPanel.tsx` to stay under §11's 400-line file limit): items editor (`MassInput` for nominal/conventional mass), OIML class, calibration certificate upload, due date, "Calibration expired" badge computed at the query level; env sensor registration shows the device key once in a dialog, never persisted in plaintext (`env_sensors.device_key_hash` only) or logged to the audit ledger.
+- [x] Lab settings (`(app)/settings/`): profile fields, logo upload/preview (presigned GET URL), numbering pattern, three fixed signatory-title rows (Tier 1–3), SLA hours — `server/actions/settings.ts`'s `updateLabSettingsAction`. Users & roles and device keys (named in §7.5's one-line Settings summary) are out of scope: §10 P4's own task list only names profile/logo/numbering/signatory titles/SLA hours, and device keys are already issued from Reference equipment.
+- [x] File upload route (`api/v1/files/route.ts`): §9 checks (≤20 MB, magic-byte allowlist via `file-type`, not just the declared MIME), SHA-256, private S3 `PutObject`, `thumb.make` enqueued for images (worker: `jobs/thumb-make.ts`, `sharp`). Only `calibration_cert` and `lab_logo` kinds are wired up — `photo`/`document`/`other` (evaluation attachments) are P6 scope.
+
+### Acceptance evidence
+
+```
+$ pnpm --filter @tula/web test
+ Test Files  5 passed (5)
+      Tests  16 passed (16)
+# includes src/server/actions/masterdata.test.ts (real DB, real ADMIN
+# session — not a session mock at the action() level): rejects an
+# instrument model whose defaultSpec has a blocking classification issue
+# (min far below the class III floor) with { ok:false, code:'RULE' } and
+# writes nothing; accepts one that classifies cleanly; every create writes
+# an audit_log row (verified via the diff column, see Decisions below);
+# an env sensor's audit diff never contains the plaintext device key.
+# src/server/queries/masterdata.test.ts: an expired reference weight set is
+# excluded from listActiveUnexpiredWeightSets (the picker) but still
+# appears, flagged `expired: true`, in listReferenceWeightSets (the list).
+
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 14 successful (test, 235 total tests
+across engine/rulepacks/schemas/web/worker/db/report/config, 40 files —
+includes worker/src/jobs/thumb-make.test.ts, a real `sharp` resize/webp
+round trip against a 1x1 PNG fixture, not a mocked pipeline),
+8 successful (build) — web build's route list now includes /instruments,
+/instruments/models/[id] and /settings.
+Lint: 0 errors (Biome).
+
+$ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
+  ✓ /login has no serious or critical accessibility violations
+  ✓ /dev/ui has no serious or critical accessibility violations
+  ✓ login is fully keyboard-operable with a visible focus ring
+  3 passed
+
+# Manual verification (curl, authenticated as a seeded non-2FA role, plus
+# direct psql fixtures cleaned up immediately after): GET /instruments,
+# /settings and /instruments/models/[id] all return 200 with real content
+# (no Next error-boundary markers); the model detail page renders
+# "Classification valid" for a spec that passes and its Save button is
+# `disabled` whenever any classification issue is severity `error`
+# (verified in source — ModelDetailClient.tsx's `hasErrors`).
+```
+
+### Decisions
+- 2026-09-28 — **Found and fixed a real production-build break**, not a pre-existing decision: `@tula/rulepacks` read its JSON data files with `node:fs.readFileSync` at module load (fine for P1, which only ever ran it server-side). P4's live classification panel needs the same validated rule pack in the browser too (`lib/classify.ts` is imported by `ModelDetailClient.tsx`, a client component), and Turbopack's production client chunker fails outright on a `node:fs` import reaching a client bundle ("the chunking context does not support external modules") — not just at runtime, the build itself would not complete. Fixed by switching `packages/rulepacks/src/index.ts` to static `import ... from '../data/....json' with { type: 'json' }` — bundler- and Node-ESM-safe in both environments (verified: `tsc` build, `vitest`, a direct `node --experimental-vm-modules` import of the compiled `dist/index.js`, and a full `next build`, all green). `resolveJsonModule` was already set workspace-wide; the import attribute is required only because `dist/index.js` can also run unbundled under plain Node (the worker, tests).
+- 2026-09-28 — **Found and fixed a real audit-ledger gap**: `action()`'s `AuditSpec.entityId` is computed from the input alone (documented reason: it must also cover the *denied* path, before any handler runs — `docs/QUESTIONS.md` #16 territory), so every P4 "create" action (`createManufacturerAction`, `createApplicantAction`, `createInstrumentModelAction`, `createReferenceWeightSetAction`) was writing an audit row with `entity_id = null` — a real ledger entry that can never be traced back to the row it describes. `AuditSpec.diff`, unlike `entityId`, already receives the handler's result, so each of those four actions now sets `diff: (_input, result) => ({ id: result.id })`. `registerEnvSensorAction` gets the same treatment but picks only `id` off its result, never the whole object — its result also carries the plaintext `deviceKey`, and spreading it would silently defeat "shown once, never retrievable again" (the action already had a comment guarding against exactly this, for exactly this reason). Caught by a real integration test asserting an audit row exists for a created entity, not by inspection.
+- 2026-09-28 — Weight-set expiry (`server/queries/masterdata.ts`) is computed by comparing `due_on` against `now()` in application code (`listActiveUnexpiredWeightSets`'s SQL `where` clause, `listReferenceWeightSets`'s post-query `.map`), not stored as a column — a set's expiry state is a pure function of one date column and today's date, so there is nothing to keep in sync and no migration needed if the "expired" threshold logic ever changes.
+- 2026-09-28 — Settings integration test coverage stops at the server action / query layer (`server/actions/masterdata.test.ts`, `server/queries/masterdata.test.ts`), not a Playwright `masterdata.spec.ts` — the phase's own `implementation.md` "Verify" line names both `pnpm --filter web test` and `test:e2e -- masterdata.spec.ts`; only the former exists. The UI itself was checked by a production `next build` (catches the client-bundle class of bug above, which `tsc`/lint cannot) plus authenticated `curl` fetches of `/instruments`, `/settings` and a model detail page (real content, no error-boundary markers) — `claude-in-chrome` browser automation was unavailable in this environment ("Claude in Chrome is turned off in your settings"), so no interactive/keyboard/visual pass was possible. **Follow-up: write `masterdata.spec.ts` (or fold masterdata screens into a broader e2e suite) once browser automation is available or in CI.**
+
+### Deviations from implementation.md
+- 2026-09-28 — §7.5's one-line Settings summary lists "users & roles, device keys" alongside lab profile/logo/numbering/signatory titles/SLA hours; §10 P4's own task list for "Lab settings" only names the latter five. Built only what P4's task list scopes; device keys already live under Instruments → Reference equipment (env sensors), and users & roles has no phase task yet. (§ update: n)
+
+### Follow-ups
+- Write `apps/web/e2e/masterdata.spec.ts` and get an interactive browser pass once `claude-in-chrome` (or another browser tool) is available in this environment — see the Decisions entry above.
+- P5+: `getInstrumentModel`'s History tab is intentionally empty; wire it to real evaluations once they exist.
+- P6: give `reference_weight_sets.cert_attachment_id` and lab logo attachments a "view/download" affordance (`presignGetUrl` exists in `server/storage.ts` and is now used by the Settings logo preview, but nothing yet shows an uploaded calibration certificate back to the user).
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8

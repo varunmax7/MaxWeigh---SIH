@@ -10,6 +10,7 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 import { enumCheck, fkUuid, idColumn } from './columns.js';
+import { attachments } from './evaluations.js';
 import { labs } from './labs.js';
 
 export const OIML_WEIGHT_CLASSES = ['E1', 'E2', 'F1', 'F2', 'M1', 'M2', 'M3'] as const;
@@ -31,7 +32,7 @@ export const referenceWeightSets = pgTable(
     certNo: text('cert_no'),
     calibratedOn: date('calibrated_on'),
     dueOn: date('due_on'),
-    certAttachmentId: fkUuid('cert_attachment_id'),
+    certAttachmentId: fkUuid('cert_attachment_id').references(() => attachments.id),
     status: text('status').notNull().default('active'),
   },
   (table) => [

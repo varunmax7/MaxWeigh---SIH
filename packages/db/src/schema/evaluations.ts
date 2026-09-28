@@ -159,9 +159,14 @@ export const attachments = pgTable(
   'attachments',
   {
     id: idColumn(),
-    evaluationId: fkUuid('evaluation_id')
-      .notNull()
-      .references(() => evaluations.id, { onDelete: 'cascade' }),
+    /**
+     * Nullable — most attachments belong to an evaluation, but a lab
+     * equipment calibration certificate (`kind: 'calibration_cert'`,
+     * referenced by `reference_weight_sets.cert_attachment_id` or
+     * `env_sensors.cert_attachment_id`) belongs to no evaluation at all.
+     * Was `.notNull()` in P2; loosened here — see docs/QUESTIONS.md #17.
+     */
+    evaluationId: fkUuid('evaluation_id').references(() => evaluations.id, { onDelete: 'cascade' }),
     testId: fkUuid('test_id').references(() => evaluationTests.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),
     caption: text('caption'),
