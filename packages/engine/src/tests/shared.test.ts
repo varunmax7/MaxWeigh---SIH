@@ -47,6 +47,20 @@ describe('evaluateLoadRow', () => {
     );
     expect(row.issues.map((i) => i.code)).toContain('LOAD_OUT_OF_RANGE');
   });
+
+  it('carries its own P/E/Ec calculation trail for "Show calculation" (implementation.md §7.5)', () => {
+    // The §4.5 golden example's L=10kg row: I=10000, ΔL=1.5, E0=-0.5 → P=10001, E=+1.0, Ec=+1.5.
+    const row = evaluateLoadRow(
+      { rowId: 'x', L: '10000', I: '10000', deltaL: '1.5' },
+      { instrument: goldenClassIII, rulepack, e0: '-0.5' },
+    );
+    expect(row.Ec).toBe('1.5');
+    const labels = row.steps?.map((s) => s.label);
+    expect(labels).toEqual(['Indication prior to rounding', 'Error', 'Corrected error']);
+    const ecStep = row.steps?.find((s) => s.label === 'Corrected error');
+    expect(ecStep?.result).toBe('1.5');
+    expect(ecStep?.formula).toBe('Ec = E − E0');
+  });
 });
 
 describe('computeZeroReference', () => {

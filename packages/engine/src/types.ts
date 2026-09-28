@@ -87,6 +87,8 @@ export interface RowResult {
   mpeInE?: Dec;
   verdict: Verdict;
   issues: Issue[];
+  /** This row's own calculation trail (P, E, Ec) — powers a per-row "Show calculation" in the UI. */
+  steps?: CalcStep[];
 }
 
 export interface TestResult {

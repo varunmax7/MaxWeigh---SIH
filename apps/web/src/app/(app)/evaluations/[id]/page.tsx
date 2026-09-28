@@ -7,6 +7,7 @@ import { ClassBadge, StatusChip, type StatusChipValue } from '@/components/metro
 import { PageHeader } from '@/components/shell/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { assertLabMember } from '@/server/lab-access';
 import {
   getEvaluationOverview,
   listEvaluationHistory,
@@ -35,11 +36,12 @@ export default async function EvaluationOverviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireSession();
+  const session = await requireSession();
   const { id } = await params;
 
   const evaluation = await getEvaluationOverview(id);
   if (!evaluation) notFound();
+  await assertLabMember(session.user.id, evaluation.labId);
 
   const [tests, history] = await Promise.all([listEvaluationTests(id), listEvaluationHistory(id)]);
 

@@ -6,6 +6,7 @@
  */
 import { D, type Decimal, toDec } from '../decimal.js';
 import { correctedError, type ErrorMethod, errorOfIndication } from '../error.js';
+import { step } from '../explain.js';
 import { type MpeContext, mpe } from '../mpe.js';
 import type { Rulepack } from '../rulepack.js';
 import type {
@@ -60,8 +61,20 @@ export function evaluateLoadRow(row: LoadRow, ctx: RowContext): RowResult {
     ...(row.deltaL !== undefined ? { deltaL: row.deltaL } : {}),
     ...(row.method !== undefined ? { method: row.method } : {}),
   };
-  const { P, E, issues: rowIssues } = errorOfIndication(obs, range, ctx.rulepack);
+  const {
+    P,
+    E,
+    issues: rowIssues,
+    steps: errorSteps,
+  } = errorOfIndication(obs, range, ctx.rulepack);
   const Ec = correctedError(E, ctx.e0);
+  const ecStep = step(
+    'Corrected error',
+    'Ec = E − E0',
+    `Ec = ${E} − ${ctx.e0} = ${toDec(Ec)}`,
+    toDec(Ec),
+    '4.5',
+  );
   const mpeResult = mpe(ctx.instrument, row.L, ctx.rulepack, {
     ...(ctx.mpeContext !== undefined ? { context: ctx.mpeContext } : {}),
     rangeIndex,
@@ -101,6 +114,7 @@ export function evaluateLoadRow(row: LoadRow, ctx: RowContext): RowResult {
     mpeInE: mpeResult.inE,
     verdict,
     issues,
+    steps: [...errorSteps, ecStep],
   };
 }
 

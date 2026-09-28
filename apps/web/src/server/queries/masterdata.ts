@@ -123,6 +123,8 @@ export async function listActiveUnexpiredWeightSets(labId: string) {
       setCode: referenceWeightSets.setCode,
       oimlClass: referenceWeightSets.oimlClass,
       dueOn: referenceWeightSets.dueOn,
+      /** `[{ id, nominal_g, conventional_mass_g?, uncertainty_mg? }]` — implementation.md §5. */
+      items: referenceWeightSets.items,
     })
     .from(referenceWeightSets)
     .where(

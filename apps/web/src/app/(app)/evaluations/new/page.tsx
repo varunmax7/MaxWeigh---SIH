@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/shell/PageHeader';
 import { getActiveLabId } from '@/server/active-lab';
+import { assertLabMember } from '@/server/lab-access';
 import { getEvaluationDraft, listTesters } from '@/server/queries/evaluations';
 import {
   listApplicants,
@@ -18,7 +19,7 @@ export default async function NewEvaluationPage({
 }: {
   searchParams: Promise<{ draft?: string }>;
 }) {
-  await requireSession();
+  const session = await requireSession();
   const activeLabId = await getActiveLabId();
   const { draft: draftId } = await searchParams;
 
@@ -29,6 +30,7 @@ export default async function NewEvaluationPage({
     activeLabId ? listTesters(activeLabId) : Promise.resolve([]),
     draftId ? getEvaluationDraft(draftId) : Promise.resolve(null),
   ]);
+  if (draft) await assertLabMember(session.user.id, draft.labId);
 
   return (
     <div className="space-y-6">

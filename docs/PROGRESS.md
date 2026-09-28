@@ -8,7 +8,7 @@
 | P3 UI system | ☑ | 2026-09-28 | 2026-09-28 | docs/screens/p3/ |
 | P4 Master data | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P5 Intake | ☑ | 2026-09-28 | 2026-09-28 | command output below |
-| P6 Workspace | ☐ | | | |
+| P6 Workspace | ☑ | 2026-09-28 | 2026-09-29 | command output below |
 | P7 Workflow | ☐ | | | |
 | P8 Reports | ☐ | | | sample PDF/DOCX paths |
 | P9 Insights | ☐ | | | bench output |
@@ -406,6 +406,91 @@ $ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
 - P6: build Execution/Attachments/Review/Report tabs on the evaluation overview as each phase lands.
 - P6: the wizard's step 4 shows a read-only, display-only preview of planned loads; implementation.md's "planned loads editable only within engine constraints" (per-row editing, not just N/A) is not built — no acceptance criterion required it this phase, but P6/P7 may want it once there's a bench UI to justify the complexity.
 - Human: confirm whether `{labCode}` in the ref-no pattern should be the lab's full `code` (`RRSL-BLR`, what's implemented) or a shorter derived form (implementation.md's own example, `EV-BLR-2026-0142`, uses just `BLR`) — `docs/QUESTIONS.md` #28.
+
+## P6 — Test execution workspace
+
+- [x] Route `/evaluations/[id]/execute/[testCode]` (`?range=` for multi-range instruments) with the three-pane layout of §7.5 — `ExecutionWorkspace` (header + battery + form), `TestBatteryList` (left), per-test form (centre), `Inspector` (right, inside each form). Plus `/workspace` ("My tests"): every applicable, not-yet-completed test on evaluations assigned to the signed-in tester.
+- [x] Server actions (`server/actions/execution.ts`): `startTestAction` (PENDING/REOPENED → IN_PROGRESS, and PLANNED → IN_TESTING on the evaluation), `saveObservationsAction` (schema validate → engine evaluate → persist `result`/`verdict` → audit the verdict only, not the payload), `completeTestAction` (guards: observations saved, no blocking issues, env start/end where the test needs them, weight sets active/unexpired **and** `standardsAdequacy`-adequate for every load used), `reopenTestAction` (`test.reopen` + typed reason).
+- [x] Shared components: `ObservationGrid` (plan-prefilled rows, Enter → next row same column, per-row Ec/Ec-in-e/MPE/verdict, per-row "Show calculation"), `ZeroRefRow`, `CalcExplainer`, `ErrorEnvelopeChart` (inline SVG on §7.2's `--envelope-*`/`--series-*` tokens — no charting dependency added), `EnvConditions` (manual now, `liveReading` prop reserved for P10), `StandardsPicker` (live `standardsAdequacy` per selected set), `FileDrop` (drag-drop + `capture` camera input) and `EvidenceGallery` (presigned thumbnails).
+- [x] Forms for all 10 MVP tests plus `TARE_ACCURACY`: `WeighingForm` and `EccentricityForm` (full grid + zero ref + standards), `SingleMeasurementForm` (`ZERO_ACCURACY`/`TARE_ACCURACY`), `ZeroReturnForm`, `DiscriminationForm`, `RepeatabilityForm`, `CreepForm` (elapsed-time prompts against the rule pack's schedule, plus the optional 4 h fallback reading), `TempNoLoadForm`, `ChecklistForm` (`EXAM_MARKINGS`/`EXAM_CONSTRUCTION`). Any catalog code without a registered evaluator renders an explicit "not implemented yet" panel rather than crashing.
+- [x] Autosave (`useAutosave` + `useTestExecution`): 800 ms debounce, optimistic, `row_version` conflict detection, status mirrored into the header with `aria-live="polite"` ("Saving…", "Saved 12:04:31", "Not saved — retrying", or the conflict message), plus a header "Save draft" that flushes the pending debounce immediately.
+- [x] Keyboard: Enter → next row same column, Tab → next field (native order), `J`/`K` → next/previous applicable test, `?` → shortcut sheet. Every control is a real focusable element, so the whole flow is Tab+Enter operable without a dedicated ⌘↵ accelerator (see Deviations).
+- [x] `/api/v1/files` extended for `photo`/`document` evidence: `test.execute` permission, `testId` resolved to its evaluation's lab and checked against `lab_members` before anything is written (the Route Handler can't use `action()`'s `assertLabAccess`, so the same check is done by hand).
+
+### Acceptance evidence
+
+```
+$ pnpm --filter @tula/web test
+ Test Files  8 passed (8)
+      Tests  24 passed (24)
+# src/server/actions/execution.test.ts — real DB, real sessions, real engine:
+#  ✓ startTest → saveObservations reproduces the §4.5 golden worked example
+#    exactly, through the real server action: zero ref E0 = −0.5 g; 10 kg
+#    Ec=+1.5 PASS, 30 kg Ec=+7.5 PASS (inclusive boundary), 2.5 kg Ec=+3.5
+#    FAIL; stored verdict FAIL; engineVersion + rulepack oiml-r76-1-2006@1.0.0
+#    persisted on the row; observations stamped schemaVersion 1.
+#  ✓ a load row saved before the required zero-ref row fails as RULE, never
+#    as an uncaught ZodError, and does not bump row_version.
+#  ✓ a stale row_version is rejected as CONFLICT (optimistic concurrency).
+#  ✓ completeTest blocks with no observations, then with observations but no
+#    env conditions, then succeeds once env + an adequate F2 weight set are
+#    supplied; reopen is FORBIDDEN for TESTING_OFFICER (no test.reopen) and
+#    succeeds for SENIOR_TESTING_OFFICER, leaving status REOPENED.
+# src/server/lab-access.test.ts — assertLabMember resolves for a member and
+#    throws (Next notFound) for a non-member.
+
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 14 successful (test, 248 total tests across
+engine/rulepacks/schemas/web/worker/db/report/config, 44 files), 8 successful
+(build) — web build's route list now includes /evaluations/[id]/execute/[testCode]
+and /workspace.
+Lint: 0 errors (Biome).
+
+$ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
+  3 passed
+
+$ pnpm tsx scripts/check-no-raw-hex.ts
+check-no-raw-hex: OK — scanned 161 files in apps/web/src, no violations.
+$ pnpm tsx scripts/check-no-float-mass.ts
+check-no-float-mass: OK — scanned 27 files in packages/engine/src, no violations.
+
+# Manual verification (curl, authenticated as testing.officer@tula.test with
+# an active_lab_id cookie; a golden-fixture evaluation + 6 evaluation_tests
+# rows inserted via psql and deleted immediately after):
+# GET /evaluations/<id>/execute/WEIGHING → 200 with the real workspace —
+# ref no EV-P6-SMOKE-0001, "Zero ref", "Ascending", "Descending", the
+# standards picker and "Mark test complete" all present, no Next
+# error-boundary markers. The battery pane rendered "0 of 5 complete" and
+# linked only the 5 APPLICABLE tests, correctly omitting the NOT_APPLICABLE
+# ZERO_TRACKING row — the regression that caught the applicability/verdict
+# bug in Decisions below.
+```
+
+### Decisions
+- 2026-09-29 — **Found and fixed a real IDOR (broken access control) in already-committed P5 code.** `/evaluations/[id]` and the wizard's `?draft=<id>` resume path fetched by raw id with no lab check at all, so any signed-in user holding `evaluation.read` — which is every role in §6.2's matrix — could open *another lab's* evaluation, including its frozen spec and full test plan, just by knowing or guessing the UUID. §6.2 annotates that permission "(own labs)" and §11 requires "every read query is scoped to the user's labs", so this was a genuine violation, not hardening. Added `server/lab-access.ts`'s `assertLabMember(userId, labId)` — the Server Component counterpart to `action()`'s `assertLabAccess` — and applied it to both P5 pages and to P6's new execute page. It calls `notFound()` rather than returning a 403, so a non-member sees the same 404 as a nonexistent id and the response never confirms that the evaluation exists. Locked in by `src/server/lab-access.test.ts`.
+- 2026-09-29 — **Found and fixed a second real bug in this phase's own first draft: `applicability` vs `verdict`.** `TestBatteryList` and the `J`/`K` navigation both filtered "applicable tests" with `verdict !== 'NOT_APPLICABLE'`. But `verdict` is only written once a test actually runs — every unexecuted test, applicable or not, sits at `verdict: null`. So a test the planner had correctly marked `applicability: 'NOT_APPLICABLE'` still appeared in the battery and in the keyboard walk, and the "N of M complete" denominator counted it. Both now filter on `applicability`, the column that is fixed at planning time and actually means this. Caught by the manual smoke test above (the fixture deliberately included a NOT_APPLICABLE `ZERO_TRACKING` row), not by typecheck or lint — both columns are `string`.
+- 2026-09-29 — **Extended the engine: `RowResult` now carries its own `steps`.** §7.5 requires a per-row "Show calculation" popover (`Ec = E − E0 = (+3.0) − (−0.5) = +3.5 g; |3.5| > 2.5 g …`), but `evaluateLoadRow` computed `errorOfIndication`'s `CalcStep[]` and then discarded them — only the test-level zero-reference steps survived into `TestResult.steps`, so there was nothing correct the UI could render per row. Rather than re-deriving the arithmetic in React (which §11 forbids), added an optional `steps?: CalcStep[]` to `RowResult` and populated it in `evaluateLoadRow` with the row's real P/E trail plus an `Ec = E − E0` step built through the engine's own exported `step()` helper. Locked in by a new `shared.test.ts` case asserting the exact labels and the `Ec` result for the §4.5 golden 10 kg row. No existing assertion broke (none compared whole `RowResult` objects).
+- 2026-09-29 — **Autosave separates the render draft from the save payload, on purpose.** A first cut had `useAutosave` own one "observations" value used for *both* rendering the grid and POSTing to the server. That cannot work: the grid must show every planned row (with `I`/`ΔL` empty until typed), while `OBSERVATION_SCHEMAS[testCode]` has no notion of "not yet typed" and rejects a row whose `I` is null. So each form now owns a `draft` (its own render shape) and supplies `toEngineObs(draft)` to `useTestExecution`, which filters to only the rows actually entered and uses *that* for both the live preview and the save. `useAutosave` was reduced to a pure debounced-save utility that doesn't own the value at all.
+- 2026-09-29 — Relatedly, `saveObservationsAction` uses `safeParse`, not `parse`. Autosave fires continuously mid-entry, so a payload that is still incomplete (a load row typed before the required zero reference, say) is routine, not exceptional — a raw `ZodError` escaping the handler would have surfaced as an unhandled 500 on every such keystroke window. It now returns `RULE` (`ActionError`'s code union deliberately excludes `'VALIDATION'`, which `action()` reserves for its own top-level schema check), and `useAutosave` treats a save-time `RULE` from this one action as "wait for more input" — back to idle, no retry loop, since only the tester's next edit can make it valid and that edit schedules its own save.
+- 2026-09-29 — Env start/end are required for completion **only** on `WEIGHING` and `ECCENTRICITY`. §4.6 scopes that requirement to "all load-based tests", which it never enumerates; applying it to every code would have made the two `EXAM_*` checklists and `TEMP_NO_LOAD` impossible to complete, since their forms have no env fields at all. `docs/QUESTIONS.md` #29 — one-line allowlist in `lib/completion-blockers.ts` if the human decides otherwise.
+- 2026-09-29 — The completion guard is split deliberately: `computeFastCompletionBlockers` (pure, shared by client and server) disables **Mark test complete** and lists reasons live, while the standards valid/adequate check runs server-side only — it needs the weight sets' calibration status and the R 111 MPE table, i.e. a DB read. So an inadequate-standards failure surfaces as a toast after the click rather than a pre-disabled reason. Both paths are enforced by `completeTestAction`; the client copy is an accelerator, never the authority (§11).
+- 2026-09-29 — Header autosave status and "Save draft" are *mirrored* up from the active form (`onStatusChange` / `onSaveNowReady`) rather than the workspace owning the save state. Only the form knows its engine-shaped observation, so hoisting the whole autosave would have meant threading `toEngineObs` and the draft through the dispatcher. An earlier cut left the header showing a hard-coded "idle" and a dead Save button — a false affordance that was worse than having neither.
+- 2026-09-29 — The `ErrorEnvelopeChart` is inline SVG reading §7.2's existing `--envelope-fill`/`--envelope-edge`/`--series-up`/`--series-down` tokens, not Recharts. §2 lists Recharts for the dashboard, but this chart needs a *stepped* ±MPE band built from each row's own computed `mpe` (so the envelope drawn is literally what judged pass/fail), which is a path string, not a series a chart library would help with. Recharts stays available for P9's dashboard; no dependency added here.
+- 2026-09-29 — `CREEP`'s timer prompts are informational: the form shows elapsed minutes since `started_at` and marks a scheduled reading "(not yet due)", but never disables the input. Hard-gating on real elapsed time would make the test impossible to exercise in development or a demo without waiting out 30 real minutes — and 4 real hours for the fallback reading.
+
+### Deviations from implementation.md
+- 2026-09-29 — **Guided mode is not built.** §10 P6 asks for a "Guided mode (tablet) and Grid mode (desktop) toggle"; only Grid mode exists. Guided mode ("one reading per screen, large targets") is a second full presentation of all nine forms, and none of the phase's acceptance criteria exercise it. Rather than ship a toggle that flips to a half-built layout, there is no toggle at all. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — No ⌘S / ⌘↵ accelerators. Enter/Tab/J/K/`?` are wired; ⌘S and ⌘↵ would need the workspace to own each form's save/complete functions, which the architecture above deliberately keeps in the form. Keyboard operability itself is unaffected — "Save draft" and "Mark test complete" are ordinary focusable buttons, so the full flow is Tab+Enter operable, which is what §7.9's WCAG requirement actually needs. (§ update: n)
+- 2026-09-29 — No `apps/web/e2e/workspace.spec.ts`, so §10 P6's first acceptance criterion ("E2E: tester completes WEIGHING for the golden instrument using only the keyboard") and the parity criterion are **not** verified interactively. `claude-in-chrome` is disabled in this environment (same as P4/P5). What is verified: the identical golden fixture end-to-end through the real server action (stored verdicts equal the §4.5 fixtures, above), and a production `next build` plus an authenticated `curl` render of the real workspace. Client/server parity is structural rather than tested — `liveEvaluate` and `saveObservationsAction` call the *same* `evaluateTest` with the same rule pack, so there is no second implementation to drift; a real parity test still belongs in the E2E suite. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — "Closing the tab mid-entry loses at most one autosave window" is implemented (800 ms debounce, flush-on-demand) but not proven by a test, for the same reason. (§ update: n)
+- 2026-09-29 — P6b (generic forms for the remaining 12 catalog codes) is not started; those evaluators aren't registered in the engine yet (`docs/QUESTIONS.md` #12), so there is nothing to render a form against. The dispatcher shows an explicit placeholder for them. (§ update: n, matches §10 P6's own "after MVP tests are solid" ordering)
+
+### Follow-ups
+- Write `apps/web/e2e/workspace.spec.ts` — keyboard-only WEIGHING completion, client/server verdict parity across the engine fixtures, tab-close autosave window — once browser automation is available.
+- Build Guided mode, or drop it from §10 P6 with the human's agreement.
+- Move `CHECKLIST_ITEMS` (`forms/ChecklistForm.tsx`) into the rule pack so the `EXAM_*` checklists are versioned with the other OIML constants instead of living in a React component (`docs/QUESTIONS.md` #30).
+- `packages/db/src/schema/equipment.ts`'s `items` comment documents snake_case (`nominal_g`) but what is actually stored is camelCase (`nominalG`, straight from `weightSetItemSchema`). Harmless today — every reader uses camelCase — but the comment should be corrected.
+- P7: the Review screen reuses this workspace read-only; `readOnly` already threads through every form and `Inspector`.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8
