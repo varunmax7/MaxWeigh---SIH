@@ -1,5 +1,14 @@
 /** Lab reference equipment: weight sets and environment sensors (implementation.md §5). */
-import { bigserial, date, index, jsonb, numeric, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  bigserial,
+  date,
+  index,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 import { enumCheck, fkUuid, idColumn } from './columns.js';
 import { labs } from './labs.js';
 

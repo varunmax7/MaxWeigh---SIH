@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
   images: { remotePatterns: [] },
   poweredByHeader: false,
   typedRoutes: true,
+  // The repo already carries its own root-level AGENTS.md/CLAUDE.md (implementation.md
+  // §11); a second, per-package pair regenerated on every `next dev` is unnecessary noise.
+  agentRules: false,
 };
 
 export default nextConfig;

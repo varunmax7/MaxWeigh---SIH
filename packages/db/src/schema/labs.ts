@@ -1,7 +1,7 @@
 /** Tenancy: RRSL labs and their members (implementation.md §5). */
 import { jsonb, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
-import { createdAtColumn, fkUuid, idColumn } from './columns.js';
 import { user } from './auth.js';
+import { createdAtColumn, fkUuid, idColumn } from './columns.js';
 
 export const labs = pgTable('labs', {
   id: idColumn(),

@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | P0 Foundation | ☑ | 2026-09-27 | 2026-09-28 | command output below |
 | P1 Engine | ☑ | 2026-09-28 | 2026-09-28 | coverage report + demo output below |
-| P2 Core | ☐ | | | |
+| P2 Core | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P3 UI system | ☐ | | | docs/screens/p3/ |
 | P4 Master data | ☐ | | | |
 | P5 Intake | ☐ | | | |
@@ -117,6 +117,80 @@ Tasks: 14 successful (typecheck), 14 successful (test, 193 total tests across
 engine/rulepacks/schemas/web/worker/db/report/config), 8 successful (build).
 Lint: 0 errors, 2 info-level style suggestions.
 ```
+
+## P2 — Database, auth, RBAC and audit ledger
+
+- [x] Drizzle schema for all §5 tables (27 tables across `packages/db/src/schema/{auth,labs,masterdata,equipment,evaluations,reports,rules,audit}.ts`); `drizzle-kit` migrations (`0000` extensions + `uuid_generate_v7()` function, `0001` tables, `0002` audit trigger + `audit_head` seed row, `0003` trigram indexes).
+- [x] Better Auth + Drizzle adapter (`packages/db/src/auth-config.ts`, shared by `apps/web/src/server/auth.ts` and `seed.ts`): email + password, `twoFactor` plugin (TOTP), extra `role`/`designation`/`employee_id`/`is_active` user fields; session policy — 30-minute idle timeout native to Better Auth, 8-hour absolute cap enforced separately (`docs/QUESTIONS.md` #15).
+- [x] `server/rbac.ts` (§6.2 matrix, `can()`, `permissionsFor()`), `server/action.ts` (Zod parse → session → permission → transaction(handler + audit), `ctx.assertLabAccess()` for lab scope — `docs/QUESTIONS.md` #16), `requireSession()`/`getSession()` in `server/session.ts`, `proxy.ts` route protection (cookie-presence only — see #3, now closed) plus the authoritative gate in `(app)/layout.tsx`.
+- [x] `packages/db/src/audit-ledger.ts`: `insertAuditEntry(tx, entry)` (hash chain via `audit_head` row lock) and `verifyChain(db)`; `apps/web/src/server/action.ts` calls the former in the same transaction as every handler. Nightly job registered in the worker: `apps/worker/src/jobs/verify-audit-chain.ts`, scheduled `0 2 * * *` (Asia/Kolkata) via pg-boss, logging a broken id at `error` level. Surfacing the daily head hash on a dashboard and emailing the Controller (§9) is P9/P10 scope.
+- [x] Minimal unstyled login page (`(auth)/login`) + TOTP challenge (`(auth)/verify-2fa`) + enrolment page (`(auth)/enroll-2fa`, password re-entry → QR + backup codes → confirm code) for privileged roles; placeholder `(app)/dashboard` so a sign-in has somewhere real to land (P3 replaces it).
+- [x] Seed (`packages/db/src/seed.ts`, idempotent): 7 RRSL labs (`docs/QUESTIONS.md` #19) + one user per role in RRSL Bengaluru via `auth.api.signUpEmail` (real password hashing, not hand-rolled), password from `SEED_PASSWORD`.
+- [x] `/api/v1/health` (DB `select 1` + S3 `HEAD` reachability).
+
+### Acceptance evidence
+
+Verified against the live dev database and a running `next dev`, both via direct HTTP calls (a real TOTP code computed from the enrolment QR's secret, per RFC 6238) and `psql`:
+
+```
+$ pnpm db:generate && pnpm db:migrate && pnpm db:seed
+Migrations applied from packages/db/migrations
+Labs ready (7 total, RRSL-BLR id=01a0e637-640b-7392-ab08-f2b4eeefdf7b).
+Created ADMIN → admin@tula.test
+... (one per role) ...
+Seed complete.
+$ pnpm db:seed   # idempotent — re-running only prints "Already exists ..."
+
+# Each seeded role can sign in (curl, real password, real Origin header):
+sign-in as TESTING_OFFICER → 200, GET /dashboard → 200 (no TOTP required)
+sign-in as ADMIN → 200 (twoFactorEnabled=false) → GET /dashboard → 307 /enroll-2fa
+  → POST /two-factor/enable → totpURI + 10 backup codes
+  → POST /two-factor/verify-totp (code computed from the URI's secret) → 200, twoFactorEnabled=true
+  → GET /dashboard → 200
+  → sign out, sign in again → {"twoFactorRedirect":true} (now correctly challenged)
+  → verify-totp again → session restored, role=ADMIN, twoFactorEnabled=true
+(admin@tula.test's TOTP was disabled again afterwards, restoring the pristine seed state.)
+
+$ curl -s localhost:3000/api/v1/health
+{"status":"ok","checks":{"db":{"status":"ok"},"s3":{"status":"ok"}}}
+
+# UPDATE/DELETE against audit_log, and the tamper-detection test:
+$ pnpm --filter @tula/db test
+ ✓ chains entries by hash, starting from genesis
+ ✓ rejects a plain UPDATE against audit_log
+ ✓ rejects a plain DELETE against audit_log
+ ✓ verifyChain reports the exact row tampered with by a superuser bypassing the trigger
+ ✓ requires trigram search and pgcrypto
+ Test Files  2 passed | Tests  5 passed
+
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 14 successful (test, 229 total tests across
+engine/rulepacks/schemas/web/worker/db/report/config), 8 successful (build).
+Lint: 0 errors, 2 info-level style suggestions (pre-existing, packages/engine).
+```
+
+### Decisions
+- 2026-09-28 — Session policy split in two: Better Auth's native `expiresIn`/`updateAge` gives the 30-minute idle timeout; the 8-hour absolute cap is enforced in `server/session.ts` by comparing the session row's immutable `createdAt` against `SESSION_ABSOLUTE_SECONDS` (`docs/QUESTIONS.md` #15).
+- 2026-09-28 — `proxy.ts` does a cookie-presence check only (`better-auth/cookies`' `getSessionCookie`); the authoritative session/2FA-enrolment check moved to `(app)/layout.tsx`, which runs as a Server Component in the Node.js runtime. A first attempt at calling `auth.api.getSession` (a real Postgres round trip) directly in `proxy.ts` failed to even bundle under Turbopack — see the next decision and `docs/QUESTIONS.md` #3.
+- 2026-09-28 — Found and worked around a Turbopack (Next 16.3.6) resolution bug: a relative import (`./db.js`) from a file compiled into more than one layer (here, `server/auth.ts`, reachable from both a Route Handler and a Server Action chain) fails to resolve — even a brand-new trivial sibling file hit the same error — while the exact same import via the `@/*` path alias works with no other change. Every cross-file import between `apps/web/src/server/*.ts` files now uses the `@/` alias, each with a comment pointing back to this note. Filed as product feedback; not filed as a `docs/QUESTIONS.md` ambiguity because it isn't a spec question, just a tooling workaround future phases need to keep following in this directory.
+- 2026-09-28 — uuid v7: Postgres 16 has no built-in `uuidv7()`, so every table's `id` defaults to a hand-written `uuid_generate_v7()` SQL function (`migrations/0000_extensions_and_functions.sql`) instead of an application-side helper — verified against a live database for RFC 9562 version/variant nibbles and monotonic ordering within one millisecond (`docs/QUESTIONS.md` #20).
+- 2026-09-28 — Better Auth's Drizzle schema (`user`/`session`/`account`/`verification`/`twoFactor`) is hand-written in `packages/db/src/schema/auth.ts`, not generated via `@better-auth/cli generate` — that CLI's own dependency tree pulls in a conflicting `better-auth@1.4.21` alongside the pinned `1.7.6`. Checked field-for-field against the installed `1.7.6` source instead (see `docs/VERSIONS.md`).
+- 2026-09-28 — `action()`'s `AuditSpec` derives `entityId`/`labId`/`diff` from plain functions of the input (and, for `diff`, the handler's result) rather than a fixed shape, so a **denied** attempt (no handler run) can still be audited with whatever the input alone reveals — required for the "forbidden write an audit entry" acceptance criterion, since there is no result to inspect yet.
+- 2026-09-28 — Found and fixed a real cross-test-file bug while verifying the above: `apps/web/src/server/action.test.ts`'s cleanup deleted `audit_log` rows but never reset `audit_head` back to `{lastId: null, lastHash: null}`, so a later, separate `pnpm test` invocation (`packages/db`'s own audit-ledger tests) intermittently inherited a stale, non-genesis head and failed a genesis-relative assertion — not a concurrency race (confirmed by direct instrumentation: the two suites never actually overlap in wall time once `turbo.json` orders `@tula/web#test` after `@tula/db#test`), just an incomplete reset. Both test files now reset `audit_head` identically.
+- 2026-09-28 — `turbo.json` gives `@tula/db#test` and `@tula/web#test` explicit workspace-scoped configs: `@tula/web#test` now `dependsOn: ["^build", "@tula/db#test"]` (both share the live dev Postgres audit ledger, so they cannot safely run concurrently) and both are `cache: false` (a live external database's state isn't something a content hash should decide is safe to skip re-checking).
+- 2026-09-28 — Nightly audit-chain verification lives in `apps/worker` as a new `audit.verify` pg-boss queue, scheduled and worked from `index.ts`; it only logs (info on success, error with the broken id on failure) — the dashboard/email delivery of the daily head hash named in §9 is P9/P10 scope.
+
+### Deviations from implementation.md
+- 2026-09-28 — `evaluations.search` (the tsvector `GENERATED` column) indexes `ref_no` only, not "ref_no, model, manufacturer, applicant" as §5's comment describes — a stored generated column can only read columns of the same row, and model/manufacturer/applicant names live on joined tables. `docs/QUESTIONS.md` #18. (§ update: n)
+- 2026-09-28 — `reference_weight_sets.cert_attachment_id` has no foreign-key constraint (P4/P6 scope; nothing populates it yet) — `attachments.evaluation_id` isn't nullable per the literal §5 listing, so a calibration certificate not tied to any evaluation doesn't fit that table as specified. `docs/QUESTIONS.md` #17. (§ update: n)
+- 2026-09-28 — Route protection (`proxy.ts`) does not do the DB-backed session/role check the P2 task list implies "route protection file" would — it does a cookie-presence check only, with the authoritative check moved to `(app)/layout.tsx`. `docs/QUESTIONS.md` #3. (§ update: y — §2's proxy.ts note should mention this split)
+
+### Follow-ups
+- Human: confirm the seven RRSL lab codes (`docs/QUESTIONS.md` #19) match the real network's official codes.
+- P4/P6: decide how a lab-equipment calibration certificate attachment fits the schema (`docs/QUESTIONS.md` #17) — loosen `attachments.evaluation_id` to nullable, or give equipment its own attachments table.
+- P4/P5/P9: full cross-entity search (model/manufacturer/applicant, not just `ref_no`) needs denormalized snapshot columns or a search view (`docs/QUESTIONS.md` #18).
+- P7: enforce the step-up TOTP window (`session.freshAge = 300`, already configured) on tier approvals, seal and revoke.
+- P9/P10: surface the daily audit-chain head hash on the dashboard and email it to the Controller as an external anchor (§9); the nightly check itself already runs and logs.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8

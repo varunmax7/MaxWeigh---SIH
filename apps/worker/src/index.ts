@@ -1,7 +1,9 @@
 import { env, loadRootEnv } from '@tula/config';
+import { createDb } from '@tula/db';
 import { PgBoss } from 'pg-boss';
+import { makeVerifyAuditChain } from './jobs/verify-audit-chain.js';
 import { logger } from './logger.js';
-import { ALL_QUEUES } from './queues.js';
+import { ALL_QUEUES, QUEUES } from './queues.js';
 
 /**
  * Tula background worker.
@@ -22,11 +24,16 @@ async function main(): Promise<void> {
     await boss.createQueue(queue);
   }
 
+  const { db, sql } = createDb(DATABASE_URL);
+  await boss.schedule(QUEUES.auditVerify, '0 2 * * *', null, { tz: 'Asia/Kolkata' });
+  await boss.work(QUEUES.auditVerify, makeVerifyAuditChain(db));
+
   logger.info({ queues: ALL_QUEUES }, 'worker ready');
 
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'worker shutting down');
     await boss.stop({ graceful: true });
+    await sql.end();
     process.exit(0);
   };
 

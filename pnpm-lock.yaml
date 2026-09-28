@@ -54,6 +54,9 @@ importers:
       better-auth:
         specifier: 1.7.6
         version: 1.7.6(@prisma/client@5.22.0)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@prisma/client@5.22.0)(@types/pg@8.23.1)(better-sqlite3@12.11.1)(kysely@0.29.6)(pg@8.23.0)(postgres@3.4.9))(next@16.3.6(@types/node@26.6.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.23.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.2)
+      drizzle-orm:
+        specifier: 0.45.3
+        version: 0.45.3(@prisma/client@5.22.0)(@types/pg@8.23.1)(better-sqlite3@12.11.1)(kysely@0.29.6)(pg@8.23.0)(postgres@3.4.9)
       next:
         specifier: 16.3.6
         version: 16.3.6(@types/node@26.6.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -66,6 +69,9 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
       '@tailwindcss/postcss':
         specifier: 4.3.3
@@ -147,9 +153,18 @@ importers:
 
   packages/db:
     dependencies:
+      '@tula/config':
+        specifier: workspace:*
+        version: link:../config
       '@tula/schemas':
         specifier: workspace:*
         version: link:../schemas
+      better-auth:
+        specifier: 1.7.6
+        version: 1.7.6(@prisma/client@5.22.0)(drizzle-kit@0.31.11)(drizzle-orm@0.45.3(@prisma/client@5.22.0)(@types/pg@8.23.1)(better-sqlite3@12.11.1)(kysely@0.29.6)(pg@8.23.0)(postgres@3.4.9))(next@16.3.6(@types/node@26.6.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.23.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.2)
+      canonicalize:
+        specifier: 5.1.0
+        version: 5.1.0
       drizzle-orm:
         specifier: 0.45.3
         version: 0.45.3(@prisma/client@5.22.0)(@types/pg@8.23.1)(better-sqlite3@12.11.1)(kysely@0.29.6)(pg@8.23.0)(postgres@3.4.9)
@@ -163,6 +178,9 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+      tsx:
+        specifier: 4.23.13
+        version: 4.23.13
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -1653,6 +1671,11 @@ packages:
 
   caniuse-lite@1.0.30001812:
     resolution: {integrity: sha512-qN+QNNBr93TCmFrmte0bBCjSDMuRvt78VlHT99qIGPszm4QsqCX8lnyWUFkHi8B7ZBAPq8SH+UqyXNy/odMdng==}
+
+  canonicalize@5.1.0:
+    resolution: {integrity: sha512-bab9+WefZljqQ8jT0qRwVmTyzAUU63K97QIQD3agynIBrb6sa5M2eAy8Hv8K3p4V9+ONVYZKtGYl4Dg+/5Gumw==}
+    engines: {node: '>=22'}
+    hasBin: true
 
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
@@ -3491,6 +3514,8 @@ snapshots:
   camelcase@5.3.1: {}
 
   caniuse-lite@1.0.30001812: {}
+
+  canonicalize@5.1.0: {}
 
   chai@6.2.2: {}
 

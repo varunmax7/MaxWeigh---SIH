@@ -6,6 +6,8 @@
  */
 export const ROUTES = {
   login: '/login',
+  verifyTwoFactor: '/verify-2fa',
+  enrollTwoFactor: '/enroll-2fa',
   dashboard: '/dashboard',
   evaluations: '/evaluations',
   workspace: '/workspace',

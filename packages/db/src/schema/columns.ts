@@ -11,9 +11,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { check, integer, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export function idColumn() {
-  return uuid('id')
-    .primaryKey()
-    .default(sql`uuid_generate_v7()`);
+  return uuid('id').primaryKey().default(sql`uuid_generate_v7()`);
 }
 
 export function fkUuid(name: string) {
@@ -28,13 +26,14 @@ export const updatedAtColumn = () =>
 
 export const rowVersionColumn = () => integer('row_version').notNull().default(1);
 
-/** A `CHECK (column IN (...))` constraint over a fixed, compile-time set of strings. */
+/**
+ * A `CHECK (column IN (...))` constraint over a fixed, compile-time set of
+ * strings. The list is inlined as SQL literal text (`sql.raw`) rather than
+ * bound as query parameters, because a migration file is plain SQL text with
+ * no parameter slots to bind against — `values` must only ever be a
+ * hard-coded constant, never user input.
+ */
 export function enumCheck(name: string, column: PgColumn, values: readonly string[]) {
-  return check(
-    name,
-    sql`${column} in (${sql.join(
-      values.map((value) => sql`${value}`),
-      sql`, `,
-    )})`,
-  );
+  const literal = values.map((value) => `'${value.replace(/'/g, "''")}'`).join(', ');
+  return check(name, sql`${column} in (${sql.raw(literal)})`);
 }

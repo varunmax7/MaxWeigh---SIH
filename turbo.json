@@ -38,6 +38,16 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "@tula/db#test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "cache": false
+    },
+    "@tula/web#test": {
+      "dependsOn": ["^build", "@tula/db#test"],
+      "outputs": [],
+      "cache": false
+    },
     "test:e2e": {
       "dependsOn": ["^build"],
       "cache": false,

@@ -11,6 +11,8 @@ export const QUEUES = {
   thumbMake: 'thumb.make',
   analyticsRefresh: 'analytics.refresh',
   notifyEmail: 'notify.email',
+  /** Nightly audit-ledger integrity check (implementation.md §9, P2). */
+  auditVerify: 'audit.verify',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];

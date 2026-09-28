@@ -5,6 +5,7 @@ describe('worker queues', () => {
   it('declares every queue named in the architecture', () => {
     expect([...ALL_QUEUES].sort()).toEqual([
       'analytics.refresh',
+      'audit.verify',
       'docx.build',
       'notify.email',
       'report.render',
