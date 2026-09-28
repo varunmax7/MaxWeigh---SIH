@@ -1,6 +1,7 @@
 import { TOTP_MANDATORY_ROLES } from '@tula/db';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { AppShell } from '@/components/shell/AppShell';
 import { ROUTES } from '@/lib/routes';
 import { requireSession } from '@/server/session';
 
@@ -10,7 +11,8 @@ import { requireSession } from '@/server/session';
  * in the Edge runtime and cannot reach Postgres); this runs as a Server
  * Component in the Node.js runtime, so it is where the 8-hour absolute
  * session cap (`requireSession()`) and the mandatory-TOTP-enrolment redirect
- * actually get enforced.
+ * actually get enforced. It also wraps every page in the P3 app shell
+ * (implementation.md §7.4).
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireSession();
@@ -23,5 +25,5 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect(ROUTES.enrollTwoFactor);
   }
 
-  return children;
+  return <AppShell session={session}>{children}</AppShell>;
 }

@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { verifyTotpAction } from './actions';
 
 export const metadata: Metadata = { title: 'Verify your identity' };
@@ -23,7 +26,7 @@ export default async function VerifyTwoFactorPage({
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
       <section
-        className="w-full max-w-sm rounded-[var(--radius-panel)] border bg-card p-8"
+        className="w-full max-w-sm rounded-[var(--radius-panel)] border border-border bg-card p-8"
         aria-labelledby="verify-heading"
       >
         <h1 id="verify-heading" className="text-2xl font-semibold text-primary">
@@ -43,11 +46,9 @@ export default async function VerifyTwoFactorPage({
             </p>
           ) : null}
 
-          <div className="space-y-1">
-            <label htmlFor="code" className="text-sm font-medium">
-              Authentication code
-            </label>
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="code">Authentication code</Label>
+            <Input
               id="code"
               name="code"
               type="text"
@@ -56,16 +57,13 @@ export default async function VerifyTwoFactorPage({
               minLength={6}
               maxLength={6}
               required
-              className="tabular w-full rounded-[var(--radius-control)] border border-input bg-background px-3 py-2 text-sm"
+              className="tabular"
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-[var(--radius-control)] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-          >
+          <Button type="submit" className="w-full">
             Verify
-          </button>
+          </Button>
         </form>
       </section>
     </main>

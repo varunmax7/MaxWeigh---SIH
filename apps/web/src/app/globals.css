@@ -1,4 +1,24 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * Self-hosted fonts (implementation.md §7.3) — resolved from node_modules at
+ * build time and bundled into `.next/static`, never fetched from a CDN at
+ * runtime (implementation.md §3.2, on-prem first). Only the weights §7.3
+ * actually uses: 400 body, 500 labels/table headers, 600 titles.
+ */
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+@import "@fontsource/ibm-plex-sans-devanagari/devanagari-400.css";
+@import "@fontsource/ibm-plex-sans-devanagari/devanagari-500.css";
+@import "@fontsource/ibm-plex-sans-devanagari/devanagari-600.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /*
  * Tula design tokens (implementation.md §7.2).
@@ -12,6 +32,8 @@
   --foreground: #161c2d; /* ink */
   --card: #ffffff;
   --card-foreground: #161c2d;
+  --popover: #ffffff;
+  --popover-foreground: #161c2d;
   --muted: #eceff5;
   --muted-foreground: #5a6378;
   --border: #dce1ea;
@@ -21,6 +43,8 @@
   --primary-foreground: #ffffff;
   --secondary: #e7eaf6;
   --secondary-foreground: #1a2560;
+  --accent: #e7eaf6;
+  --accent-foreground: #1a2560;
   --destructive: #b42318;
   --destructive-foreground: #ffffff;
 
@@ -42,13 +66,16 @@
   --series-up: #1a2560;
   --series-down: #0e7c86;
 
+  /* Radius varies by level (§7.1): panels 8px, inputs/buttons 6px, chips 4px. */
   --radius-panel: 8px;
   --radius-control: 6px;
   --radius-chip: 4px;
 
-  /* TODO(P3): replace with self-hosted IBM Plex Sans / Mono (§7.3). */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --font-sans:
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --font-devanagari: "IBM Plex Sans Devanagari", var(--font-sans);
 }
 
 @theme inline {
@@ -56,6 +83,8 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
@@ -65,6 +94,8 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 
@@ -87,14 +118,22 @@
   --radius-panel: var(--radius-panel);
   --radius-control: var(--radius-control);
   --radius-chip: var(--radius-chip);
+  /* shadcn-generated components use the generic radius scale; align it to
+     the same three levels rather than a proportional `--radius` base. */
+  --radius-sm: var(--radius-chip);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-panel);
+  --radius-xl: var(--radius-panel);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --font-devanagari: var(--font-devanagari);
 }
 
 @layer base {
   * {
     border-color: var(--border);
+    @apply outline-ring/50;
   }
 
   body {
@@ -110,8 +149,56 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Hindi report headers (§7.3) — the Devanagari cut, falling back to Plex Sans. */
+  .font-devanagari {
+    font-family: var(--font-devanagari);
+  }
+
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+}
+
+/*
+ * Dark mode (§7.2): same tokens under `.dark`; light ships as default (labs
+ * are bright environments). No toggle is built in P3 — this exists so a
+ * later phase can add one without touching a single component's colours.
+ */
+.dark {
+  --background: #0f1420;
+  --foreground: #e8ebf2;
+  --card: #161c2d;
+  --card-foreground: #e8ebf2;
+  --popover: #161c2d;
+  --popover-foreground: #e8ebf2;
+  --muted: #1f2637;
+  --muted-foreground: #9aa3b8;
+  --border: #2a3348;
+  --input: #323c54;
+  --ring: #7c8ee0;
+  --primary: #7c8ee0;
+  --primary-foreground: #0f1420;
+  --secondary: #232a44;
+  --secondary-foreground: #c7cff0;
+  --accent: #232a44;
+  --accent-foreground: #c7cff0;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+
+  --pass: #3ba876;
+  --pass-bg: #133523;
+  --fail: #f87171;
+  --fail-bg: #3a1416;
+  --pending: #d8a13c;
+  --pending-bg: #3a2c0d;
+  --active: #7c8ee0;
+  --active-bg: #1f2547;
+  --seal: #d4af61;
+  --seal-bg: #332a12;
+
+  --envelope-fill: #232a44;
+  --envelope-edge: #4a5a94;
+  --series-up: #8fa0e8;
+  --series-down: #4fd1c5;
 }

@@ -2,6 +2,9 @@
 
 import Image from 'next/image';
 import { useActionState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   CONFIRM_ENROLLMENT_INITIAL_STATE,
   confirmEnrollmentAction,
@@ -12,7 +15,7 @@ import {
 /**
  * Two steps in one page (implementation.md §9, §10 P2): re-enter the
  * password to generate a TOTP secret, then confirm it with the first code
- * the authenticator app produces. P3 restyles this without changing the flow.
+ * the authenticator app produces.
  */
 export function EnrollForm() {
   const [startState, startAction, starting] = useActionState(
@@ -36,27 +39,14 @@ export function EnrollForm() {
           </p>
         ) : null}
 
-        <div className="space-y-1">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="w-full rounded-[var(--radius-control)] border border-input bg-background px-3 py-2 text-sm"
-          />
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" autoComplete="current-password" required />
         </div>
 
-        <button
-          type="submit"
-          disabled={starting}
-          className="w-full rounded-[var(--radius-control)] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
+        <Button type="submit" disabled={starting} className="w-full">
           {starting ? 'Generating…' : 'Generate QR code'}
-        </button>
+        </Button>
       </form>
     );
   }
@@ -101,11 +91,9 @@ export function EnrollForm() {
           </p>
         ) : null}
 
-        <div className="space-y-1">
-          <label htmlFor="code" className="text-sm font-medium">
-            Authentication code
-          </label>
-          <input
+        <div className="space-y-1.5">
+          <Label htmlFor="code">Authentication code</Label>
+          <Input
             id="code"
             name="code"
             type="text"
@@ -114,17 +102,13 @@ export function EnrollForm() {
             minLength={6}
             maxLength={6}
             required
-            className="tabular w-full rounded-[var(--radius-control)] border border-input bg-background px-3 py-2 text-sm"
+            className="tabular"
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={confirming}
-          className="w-full rounded-[var(--radius-control)] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
+        <Button type="submit" disabled={confirming} className="w-full">
           {confirming ? 'Verifying…' : 'Confirm and continue'}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -16,7 +16,7 @@ export default async function EnrollTwoFactorPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
       <section
-        className="w-full max-w-sm rounded-[var(--radius-panel)] border bg-card p-8"
+        className="w-full max-w-sm rounded-[var(--radius-panel)] border border-border bg-card p-8"
         aria-labelledby="enroll-heading"
       >
         <h1 id="enroll-heading" className="text-2xl font-semibold text-primary">

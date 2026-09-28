@@ -36,9 +36,10 @@ export function proxy(request: NextRequest): NextResponse {
 export const config = {
   matcher: [
     /*
-     * Everything except: API routes, the public verify/print routes, and
-     * Next's own static/asset paths.
+     * Everything except: API routes, the public verify/print routes, the
+     * dev-only component gallery (implementation.md §10 P3 — it 404s itself
+     * in production), and Next's own static/asset paths.
      */
-    '/((?!api|verify/|print/|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|verify/|print/|dev/|_next/static|_next/image|favicon.ico).*)',
   ],
 };
