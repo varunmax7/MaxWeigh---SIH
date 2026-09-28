@@ -17,8 +17,8 @@ import {
 } from '@tula/schemas';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { classifyInstrument, hasBlockingIssues } from '@/lib/classify';
-import { ActionError, action } from '@/server/action';
+import { action } from '@/server/action';
+import { assertSpecClassifies } from '@/server/spec-validation';
 
 export const createManufacturerAction = action(
   {
@@ -77,26 +77,6 @@ export const updateApplicantAction = action(
     return { id };
   },
 );
-
-/**
- * Validates `defaultSpec` against `@tula/engine` before ever touching the
- * database — implementation.md §10 P4 acceptance: "An invalid spec shows
- * engine issues with clause references; errors block saving the default
- * spec." The live panel runs the same check client-side; this is the
- * authoritative one.
- */
-function assertSpecClassifies(
-  defaultSpec: z.infer<typeof instrumentModelInputSchema>['defaultSpec'],
-) {
-  if (!defaultSpec) return;
-  const issues = classifyInstrument(defaultSpec);
-  if (hasBlockingIssues(issues)) {
-    throw new ActionError(
-      'RULE',
-      `Default spec has ${issues.filter((i) => i.severity === 'error').length} blocking classification issue(s).`,
-    );
-  }
-}
 
 export const createInstrumentModelAction = action(
   {

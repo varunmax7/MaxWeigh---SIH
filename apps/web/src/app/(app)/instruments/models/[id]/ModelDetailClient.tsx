@@ -9,6 +9,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { SpecEditor } from '@/components/forms/SpecEditor';
 import { ClassificationPanel } from '@/components/metrology';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,16 +23,15 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { classifyInstrument } from '@/lib/classify';
-import { updateInstrumentModelAction } from '@/server/actions/masterdata';
-import type { getInstrumentModel, listManufacturers } from '@/server/queries/masterdata';
-import { type ModuleRow, ModulesEditor } from './ModulesEditor';
-import { SpecEditor } from './SpecEditor';
 import {
   emptySpecState,
   type SpecState,
   specStateFromMetrology,
   toInstrumentMetrology,
-} from './spec-state';
+} from '@/lib/spec-state';
+import { updateInstrumentModelAction } from '@/server/actions/masterdata';
+import type { getInstrumentModel, listManufacturers } from '@/server/queries/masterdata';
+import { type ModuleRow, ModulesEditor } from './ModulesEditor';
 
 type Model = NonNullable<Awaited<ReturnType<typeof getInstrumentModel>>>;
 type Manufacturer = Awaited<ReturnType<typeof listManufacturers>>[number];

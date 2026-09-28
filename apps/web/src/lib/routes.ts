@@ -10,6 +10,7 @@ export const ROUTES = {
   enrollTwoFactor: '/enroll-2fa',
   dashboard: '/dashboard',
   evaluations: '/evaluations',
+  newEvaluation: '/evaluations/new',
   workspace: '/workspace',
   instruments: '/instruments',
   reports: '/reports',

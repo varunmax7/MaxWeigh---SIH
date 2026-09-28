@@ -7,6 +7,7 @@
  * editing master data or publishing a new rule pack later never changes a
  * past evaluation.
  */
+import { EVALUATION_PRIORITIES, EVALUATION_STATUSES, OVERALL_VERDICTS } from '@tula/schemas';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
@@ -39,23 +40,11 @@ const tsvector = customType<{ data: string }>({
   },
 });
 
-export const EVALUATION_STATUSES = [
-  'DRAFT',
-  'PLANNED',
-  'IN_TESTING',
-  'PENDING_T1',
-  'PENDING_T2',
-  'PENDING_T3',
-  'ISSUED',
-  'RETURNED',
-  'REVOKED',
-  'AMENDING',
-  'CANCELLED',
-] as const;
-export type EvaluationStatus = (typeof EVALUATION_STATUSES)[number];
-
-export const EVALUATION_PRIORITIES = ['normal', 'urgent'] as const;
-export const OVERALL_VERDICTS = ['CONFORMS', 'DOES_NOT_CONFORM', 'INCOMPLETE'] as const;
+// `EVALUATION_STATUSES`/`OVERALL_VERDICTS`/`EVALUATION_PRIORITIES` live in
+// @tula/schemas (client-safe) and are re-exported here for server code that
+// already imports them from @tula/db — see the comment on their definition.
+export type { EvaluationStatus, OverallVerdict } from '@tula/schemas';
+export { EVALUATION_PRIORITIES, EVALUATION_STATUSES, OVERALL_VERDICTS };
 
 export const evaluations = pgTable(
   'evaluations',

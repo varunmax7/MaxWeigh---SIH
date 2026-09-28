@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { insertAuditEntry, verifyChain } from './audit-ledger.js';
 import { createDb } from './client.js';
 import { AUDIT_GENESIS_HASH, auditHead, auditLog } from './schema/audit.js';
@@ -24,21 +24,33 @@ function entry(action: string) {
 }
 
 /**
- * These tests append real rows to the shared dev database's audit_log, so
- * every test run resets it to empty afterwards — restoring the append-only
- * trigger's own bypass mechanism (disable → clean up → re-enable) is the only
- * way to do that, since the trigger (correctly) refuses a plain DELETE.
- * Resetting `audit_head` too, not just the rows, matters just as much: any
- * other test file that also exercises the ledger (`apps/web`'s
- * `action.test.ts`) must leave the exact same pristine state behind, or the
- * next `pnpm test` run inherits a `prev_hash` pointing at a row that no
- * longer exists.
+ * Disables the append-only trigger just long enough to wipe `audit_log` and
+ * reset `audit_head` to genesis — the trigger correctly refuses a plain
+ * DELETE, so this is the only way to clear the ledger at all.
  */
-afterAll(async () => {
+async function resetLedgerToGenesis() {
   await sql`ALTER TABLE audit_log DISABLE TRIGGER audit_log_append_only_trigger`;
   await sql`DELETE FROM audit_log`;
   await sql`ALTER TABLE audit_log ENABLE TRIGGER audit_log_append_only_trigger`;
   await db.update(auditHead).set({ lastId: null, lastHash: null }).where(eq(auditHead.id, 1));
+}
+
+/**
+ * These tests append real rows to the shared dev database's audit_log and
+ * assert the very first one chains from `AUDIT_GENESIS_HASH` — true only if
+ * the ledger is actually empty when this suite starts. `turbo.json` orders
+ * `@tula/db#test` before every other package's tests specifically so that
+ * holds under `pnpm test`, but normal application usage (every P4/P5+
+ * mutation writes a real, permanent audit entry — by design, an audit trail
+ * is not something tests should scrub) and ad hoc `vitest run` invocations
+ * during development both leave real rows behind. `beforeAll` resets to
+ * genesis explicitly rather than assuming it, so this suite is correct
+ * regardless of what ran against this database before it, not just under
+ * turbo's own ordering.
+ */
+beforeAll(resetLedgerToGenesis);
+afterAll(async () => {
+  await resetLedgerToGenesis();
   await sql.end();
 });
 

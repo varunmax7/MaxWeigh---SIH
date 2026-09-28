@@ -14,4 +14,5 @@ export const REQUIRED_EXTENSIONS = ['pg_trgm', 'pgcrypto'] as const;
 export * from './audit-ledger.js';
 export * from './auth-config.js';
 export * from './client.js';
+export * from './number-sequences.js';
 export * from './schema/index.js';

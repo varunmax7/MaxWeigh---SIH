@@ -47,7 +47,7 @@ export function Topbar({
       <div className="ml-auto flex items-center gap-2">
         {canCreateEvaluation ? (
           <Button asChild size="sm">
-            <Link href={ROUTES.evaluations}>
+            <Link href={ROUTES.newEvaluation}>
               <Plus className="size-4" />
               New evaluation
             </Link>

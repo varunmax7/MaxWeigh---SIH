@@ -7,7 +7,7 @@
 | P2 Core | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P3 UI system | ☑ | 2026-09-28 | 2026-09-28 | docs/screens/p3/ |
 | P4 Master data | ☑ | 2026-09-28 | 2026-09-28 | command output below |
-| P5 Intake | ☐ | | | |
+| P5 Intake | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P6 Workspace | ☐ | | | |
 | P7 Workflow | ☐ | | | |
 | P8 Reports | ☐ | | | sample PDF/DOCX paths |
@@ -324,6 +324,88 @@ $ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
 - Write `apps/web/e2e/masterdata.spec.ts` and get an interactive browser pass once `claude-in-chrome` (or another browser tool) is available in this environment — see the Decisions entry above.
 - P5+: `getInstrumentModel`'s History tab is intentionally empty; wire it to real evaluations once they exist.
 - P6: give `reference_weight_sets.cert_attachment_id` and lab logo attachments a "view/download" affordance (`presignGetUrl` exists in `server/storage.ts` and is now used by the Settings logo preview, but nothing yet shows an uploaded calibration certificate back to the user).
+
+## P5 — Evaluation intake wizard and test plan
+
+- [x] `/evaluations` list (`evaluations/page.tsx`, `EvaluationsTable.tsx`, `EvaluationsFilters.tsx`): TanStack table, nuqs-backed filter bar (status, accuracy class, tester, verdict, created-date range, overdue), three quick views ("My open", "Overdue", "This month"), pagination — all in the URL.
+- [x] `/evaluations/new` five-step wizard (`evaluations/new/Wizard.tsx` + `steps/Step1..5*.tsx`): applicant/manufacturer (Select + quick-create dialog — see Deviations), instrument model (same pattern, filtered by manufacturer) + sample serials, metrology parameters (reuses P4's `SpecEditor`/`ClassificationPanel`, now moved to `components/forms/` and `lib/spec-state.ts` so both the model page and the wizard share one implementation), test plan (live `planTests()` + per-test planners, N/A toggle via a new shared `ReasonDialog`), assignment (tester/due date/priority) → **Create evaluation**.
+- [x] DRAFT autosave and resume: `saveDraftEvaluationAction` creates-or-updates the DRAFT row once step 3's spec classifies cleanly (the earliest point every NOT NULL column on `evaluations` can be satisfied — see Decisions); `/evaluations/new?draft=<id>` reloads it. `submitEvaluationAction` generates the plan and transitions DRAFT → PLANNED.
+- [x] Transactional reference numbers: `packages/db/src/number-sequences.ts`'s `allocateNumber` (one `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`, no separate `SELECT ... FOR UPDATE`), format `EV-{labCode}-{year}-{seq:04d}`.
+- [x] On submit: `spec_snapshot` frozen from the wizard's (possibly edited) spec, `rulepack_id@version` + `engine_version` pinned, `planTests()` + `planWeighingLoads`/`planEccentricity`/`planRepeatability`/`planDiscrimination`/`planCreep`/`planTemperatureSequence` run, `evaluation_tests` inserted with `params`, `applicability` and `naReason` (engine-derived or user-overridden).
+- [x] Evaluation overview (`evaluations/[id]/page.tsx`): ref no/model/class/status header, tabs Overview (progress + timeline), Instrument (frozen spec, rule pack, engine version), Test plan (every planned test with clause/applicability/status/verdict), History (audit entries for this evaluation) — Execution/Attachments/Review/Report are P6+ scope, not built.
+- [x] Workflow: DRAFT → PLANNED (`submitEvaluationAction`), DRAFT/PLANNED → CANCELLED (`cancelEvaluationAction`, reason required via `ReasonDialog`).
+
+### Acceptance evidence
+
+```
+$ pnpm --filter @tula/web test
+ Test Files  6 passed (6)
+      Tests  19 passed (19)
+# src/server/actions/evaluations.test.ts — real DB, real INTAKE_OFFICER
+# session:
+#  ✓ planTests() through submitEvaluationAction produces exactly the golden
+#    plan (§4.7) in DB rows: WEIGHING [100g,2.5kg,10kg,15kg,30kg] + 50g zero
+#    ref, ECCENTRICITY 10kg/5 positions, REPEATABILITY 15kg+30kg/10 readings,
+#    DISCRIMINATION 100g/15kg/30kg +7g, CREEP 30kg/[0,5,15,30]min; evaluation
+#    row carries rulepackId=oiml-r76-1-2006, rulepackVersion=1.0.0, a
+#    non-empty engineVersion, and status=PLANNED
+#  ✓ rejects submitting the same draft twice (CONFLICT — already PLANNED)
+#  ✓ a user can override an APPLICABLE test to N/A with a required reason
+# src/server/queries/masterdata.test.ts, src/server/actions/masterdata.test.ts
+# (P4, unaffected), src/server/action.test.ts, src/lib/routes.test.ts,
+# src/server/rbac.test.ts: all still pass.
+$ pnpm --filter @tula/db test
+ Test Files  3 passed (3)
+      Tests  9 passed (9)
+# includes number-sequences.test.ts: starts at 1 for a fresh lab/year/kind,
+# increments monotonically, keeps separate counters per kind (EVAL/REPORT/
+# CERT), and allocates 10 distinct gap-free numbers under 10 concurrent
+# callers (Promise.all) — the ON CONFLICT DO UPDATE takes the row lock, no
+# separate SELECT ... FOR UPDATE needed.
+
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 14 successful (test, 242 total tests
+across engine/rulepacks/schemas/web/worker/db/report/config, 42 files),
+8 successful (build) — web build's route list now includes /evaluations,
+/evaluations/[id] and /evaluations/new.
+Lint: 0 errors (Biome).
+
+$ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
+  ✓ /login has no serious or critical accessibility violations
+  ✓ /dev/ui has no serious or critical accessibility violations
+  ✓ login is fully keyboard-operable with a visible focus ring
+  3 passed
+
+# Manual verification (curl, authenticated as intake.officer@tula.test,
+# with an active_lab_id cookie set for RRSL-BLR; psql fixtures inserted and
+# deleted immediately after): GET /evaluations, /evaluations/new and
+# /evaluations/[id] (a real PLANNED evaluation with 3 evaluation_tests rows)
+# all return 200 with real content — filter bar, all 5 wizard step labels,
+# all 4 overview tabs, ref no, model name, "Cancel evaluation" — no Next
+# error-boundary markers. No interactive/keyboard pass — see the P4 note on
+# `claude-in-chrome` being unavailable in this environment.
+```
+
+### Decisions
+- 2026-09-28 — **Found and fixed a second instance of the P4 client-bundle bug**: `EvaluationsFilters.tsx` (a Client Component) imported `EVALUATION_STATUSES`/`OVERALL_VERDICTS` from `@tula/db` for its filter dropdowns. Unlike `@tula/rulepacks`, `@tula/db`'s barrel (`export * from './client.js'`) can't be made client-safe by switching to a static import — it holds a *live* `postgres` TCP/TLS connection, so `next build` failed the same way ("Module not found: tls"), reached this time through `@tula/db → apps/web/src/app/(app)/evaluations/EvaluationsFilters.tsx`. Fixed at the root rather than patching the one call site: moved `EVALUATION_STATUSES`/`OVERALL_VERDICTS`/`EVALUATION_PRIORITIES` into `@tula/schemas` (already client-safe, already a `@tula/db` dependency) as the canonical definition; `packages/db/src/schema/evaluations.ts` now imports and re-exports them instead of defining its own copy, so existing server-side importers of `@tula/db`'s names don't need to change. **New standing rule for this project: a Client Component must never import anything — including a plain string-array constant — from `@tula/db`'s package root, because the whole barrel (with `postgres`) loads regardless of which named export is used.** `@tula/schemas` (or a small client-safe module of its own) is where any enum/constant a client component needs has to live.
+- 2026-09-28 — **Found and fixed a real test-suite fragility, unrelated to my own new code but newly triggered by it**: `packages/db/src/audit-ledger.test.ts`'s first test asserted the very first row it inserts chains from `AUDIT_GENESIS_HASH` — true only when `audit_log` is completely empty at that point. That held as long as `turbo.json`'s ordering (`@tula/db#test` before every other package) was the only way tests ever ran; P4/P5's own tests (`masterdata.test.ts`, `evaluations.test.ts`) deliberately leave real audit rows in place (an audit trail is not something a test should scrub, matching real usage), and once any of those run before `@tula/db#test` in a given session — trivially possible via a plain `vitest run` outside turbo, or simply because the shared dev database now carries real history from normal use — the "starts from genesis" assumption breaks, exactly as it did here mid-session. Fixed by adding a `beforeAll` that resets the ledger to genesis explicitly (the same disable-trigger/delete/enable-trigger/reset-head sequence `afterAll` already used), so the suite is self-sufficient regardless of what ran against the database before it, not just correct under turbo's own ordering.
+- 2026-09-28 — DRAFT autosave triggers exactly once per wizard session, at the step 3 → step 4 transition (and again on every subsequent Back-then-forward through step 3) — not continuously on keystroke. `evaluations` has no nullable column that could hold a "just started the wizard" row (`applicant_id`/`manufacturer_id`/`model_id`/`spec_snapshot` are all `NOT NULL`), so there is no earlier point to autosave from; steps 1–2 live only in the wizard's client state until then. "Resume draft" therefore always resumes at step 4 (spec already saved; test-plan overrides and assignment are collected fresh, since those are never persisted mid-wizard — they're written for the first time by `submitEvaluationAction`).
+- 2026-09-28 — The wizard uses a `Select` + "quick-create" `Dialog` for applicant/manufacturer/model, not §7.5's literal "search-or-create combobox" (the Base UI `Combobox` primitive P3 built in `components/ui/combobox.tsx`). Matches the pattern P4 already used successfully for every other entity picker in this codebase; a more complex, first-time-used component felt like the wrong place to spend this phase's risk budget in an environment with no interactive browser to verify it in. `docs/QUESTIONS.md` #26.
+- 2026-09-28 — `SpecEditor.tsx` and `spec-state.ts` moved from `instruments/models/[id]/` to `components/forms/` and `lib/`, respectively, so the wizard's step 3 and the model detail page share one implementation instead of two copies of the same `InstrumentMetrology ↔ form state` marshalling logic (`ModelDetailClient.tsx` updated to import from the new paths; behaviour unchanged).
+- 2026-09-28 — Found and fixed a small pre-existing bug while wiring the wizard in: the topbar's "+ New evaluation" button (built in P3, before this route existed) linked to `/evaluations` (the list) instead of `/evaluations/new`. Added `ROUTES.newEvaluation` and fixed the link.
+- 2026-09-28 — `submitEvaluationAction` deletes and re-inserts `evaluation_tests` rather than upserting, so a retried request against the same draft replaces the plan instead of violating `UNIQUE (evaluation_id, test_code, range_index)` on a second attempt. Only reachable while the evaluation is still DRAFT (checked before this runs); once PLANNED, a second `submitEvaluationAction` call is rejected with CONFLICT before it touches `evaluation_tests` at all.
+- 2026-09-28 — "Overdue" (a `listEvaluations` filter, one of the list's three quick views) is defined as `due_at < now()` AND `status` in the pre-terminal set (`PLANNED, IN_TESTING, PENDING_T1..3, RETURNED, AMENDING`) — DRAFT is excluded (nothing to be overdue on yet) and so are ISSUED/CANCELLED/REVOKED (already resolved one way or another).
+- 2026-09-28 — `cancelEvaluationAction` is gated on `evaluation.create` (no dedicated `evaluation.cancel` permission exists in §6.2's matrix) — every role that can create an evaluation can also withdraw one of its own. `docs/QUESTIONS.md` #27.
+
+### Deviations from implementation.md
+- 2026-09-28 — Evaluation overview ships 4 of the 8 tabs §7.5 names (Overview, Instrument, Test plan, History) — Execution, Attachments, Review and Report all depend on P6/P7/P8 features (test execution, file uploads on evaluations, the review/approval workflow, the report model) that don't exist yet. (§ update: n, matches §10's own phase split)
+- 2026-09-28 — No `apps/web/e2e/intake.spec.ts` — same reason as P4's missing `masterdata.spec.ts`: `claude-in-chrome` was unavailable this session. Substituted with the real-DB integration test plus manual `curl` verification described above. (§ update: n, tracked as a follow-up)
+
+### Follow-ups
+- Write `apps/web/e2e/intake.spec.ts` (wizard steps, autosave/resume, N/A-with-reason, filter-URL round-trip) once browser automation is available.
+- P6: build Execution/Attachments/Review/Report tabs on the evaluation overview as each phase lands.
+- P6: the wizard's step 4 shows a read-only, display-only preview of planned loads; implementation.md's "planned loads editable only within engine constraints" (per-row editing, not just N/A) is not built — no acceptance criterion required it this phase, but P6/P7 may want it once there's a bench UI to justify the complexity.
+- Human: confirm whether `{labCode}` in the ref-no pattern should be the lab's full `code` (`RRSL-BLR`, what's implemented) or a shorter derived form (implementation.md's own example, `EV-BLR-2026-0142`, uses just `BLR`) — `docs/QUESTIONS.md` #28.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8

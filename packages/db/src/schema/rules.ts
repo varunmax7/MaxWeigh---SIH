@@ -31,6 +31,7 @@ export const rulepacks = pgTable(
 );
 
 export const NUMBER_SEQUENCE_KINDS = ['EVAL', 'REPORT', 'CERT'] as const;
+export type NumberSequenceKind = (typeof NUMBER_SEQUENCE_KINDS)[number];
 
 export const numberSequences = pgTable(
   'number_sequences',

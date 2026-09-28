@@ -50,6 +50,11 @@ produces the same binary behaviour a certificate was issued under.
 | @fontsource/ibm-plex-sans, -mono, -sans-devanagari | 5.3.0 | apps/web (self-hosted per-weight `@import`s in `globals.css`, §7.3) |
 | @playwright/test | 1.63.0 | apps/web (devDependency; `test:e2e`, §10 P3) |
 | @axe-core/playwright | 4.13.0 | apps/web (devDependency; the `/login` + `/dev/ui` accessibility check) |
+| @tanstack/react-table | 9.2.4 | apps/web (P4: Instruments list/search tables) |
+| file-type | 22.1.1 | apps/web (P4: magic-byte MIME check on upload, §9) |
+| @aws-sdk/client-s3, @aws-sdk/s3-request-presigner | 3.1141.0 | apps/web, apps/worker (P4: `/api/v1/files`, thumbnail worker job) |
+| sharp | 0.35.5 | apps/worker (P4: `thumb.make` job) |
+| nuqs | 2.10.1 | apps/web (P5: `/evaluations` list filters, §7.5) |
 
 `tsx` is also a root devDependency, used to run `scripts/check-no-float-mass.ts`
 and `scripts/gen-methodology.ts`, and (P2) a devDependency of `packages/db` for
@@ -74,9 +79,10 @@ field-for-field against the installed `better-auth@1.7.6` source.
 | Object storage (S3 API) | chrislusf/seaweedfs:latest | Substitutes for MinIO, whose images are no longer public — see `docs/QUESTIONS.md` #4 |
 | SMTP (dev) | axllent/mailpit:latest | UI on http://localhost:8025 |
 
-Added later (recorded when the phase installs them): TanStack Table, Recharts,
-nuqs (P5–P9), `docx`, `@signpdf/*`, `sharp` (P8), `@aws-sdk/client-s3` (P6),
-`fast-check` (P1).
+Added later (recorded when the phase installs them, now in the table above):
+TanStack Table, `file-type`, `@aws-sdk/client-s3`/`s3-request-presigner`, `sharp`
+(all P4), `nuqs` (P5), `fast-check` (P1). Still to come: Recharts, `docx`,
+`@signpdf/*` (P8).
 
 Playwright's browser binary (Chromium only) is installed separately via
 `npx playwright install --with-deps chromium` — not tracked by `pnpm-lock.yaml`,

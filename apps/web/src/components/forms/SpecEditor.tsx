@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { SpecState } from './spec-state';
+import type { SpecState } from '@/lib/spec-state';
 
 const ACCURACY_CLASSES = ['I', 'II', 'III', 'IIII'] as const;
 const RANGE_KINDS = ['single', 'multi_range', 'multi_interval'] as const;
