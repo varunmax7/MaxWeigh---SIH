@@ -1,5 +1,5 @@
-import type { Permission } from '@/server/rbac';
 import { ROUTES } from '@/lib/routes';
+import type { Permission } from '@/server/rbac';
 
 /**
  * A lucide-react icon name, not the component itself — `NavItem` crosses

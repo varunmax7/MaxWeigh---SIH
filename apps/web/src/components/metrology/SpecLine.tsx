@@ -5,28 +5,37 @@ import { MassValue } from './MassValue';
 
 /**
  * The one-line instrument summary used across the app (implementation.md
- * §7.6): class, Max, Min, e/d, and n. Takes already-computed display values
- * rather than an `InstrumentMetrology` — n and any multi-range breakdown are
- * engine logic (implementation.md §11: "All OIML logic lives in
- * packages/engine"), not something this component derives.
+ * §7.6, §7.4's example: "Max 30 kg  Min 100 g  e = d = 5 g"). Takes
+ * already-computed display values rather than an `InstrumentMetrology` — n
+ * and any multi-range breakdown are engine logic (implementation.md §11:
+ * "All OIML logic lives in packages/engine"), not something this component
+ * derives.
+ *
+ * `maxUnit` and `smallUnit` are separate on purpose: Max is usually kg while
+ * Min/e/d are usually g on the same instrument (as in the example above), so
+ * one `unit` prop for all four would round Min/e/d to `0` whenever they're
+ * far smaller than Max — a real bug caught in `/dev/ui`, not by inspection.
  */
 export function SpecLine({
   accuracyClass,
   max,
+  maxUnit,
   min,
   e,
   d,
+  smallUnit = maxUnit,
   n,
-  unit,
   className,
 }: {
   accuracyClass: AccuracyClass;
   max: Dec;
+  maxUnit: DisplayUnit;
   min: Dec;
   e: Dec;
   d: Dec;
+  /** Unit for Min/e/d; defaults to `maxUnit` when every value shares one unit. */
+  smallUnit?: DisplayUnit;
   n?: number | string;
-  unit: DisplayUnit;
   className?: string;
 }) {
   return (
@@ -37,26 +46,26 @@ export function SpecLine({
       </span>
       <span className="flex items-baseline gap-1">
         <span className="text-muted-foreground">Max</span>
-        <MassValue grams={max} unit={unit} decimalPlaces={0} />
+        <MassValue grams={max} unit={maxUnit} decimalPlaces={0} />
       </span>
       <span className="flex items-baseline gap-1">
         <span className="text-muted-foreground">Min</span>
-        <MassValue grams={min} unit={unit} decimalPlaces={0} />
+        <MassValue grams={min} unit={smallUnit} decimalPlaces={0} />
       </span>
       {e === d ? (
         <span className="flex items-baseline gap-1">
           <span className="text-muted-foreground">e = d</span>
-          <MassValue grams={e} unit={unit} decimalPlaces={0} />
+          <MassValue grams={e} unit={smallUnit} decimalPlaces={0} />
         </span>
       ) : (
         <>
           <span className="flex items-baseline gap-1">
             <span className="text-muted-foreground">e</span>
-            <MassValue grams={e} unit={unit} decimalPlaces={0} />
+            <MassValue grams={e} unit={smallUnit} decimalPlaces={0} />
           </span>
           <span className="flex items-baseline gap-1">
             <span className="text-muted-foreground">d</span>
-            <MassValue grams={d} unit={unit} decimalPlaces={0} />
+            <MassValue grams={d} unit={smallUnit} decimalPlaces={0} />
           </span>
         </>
       )}

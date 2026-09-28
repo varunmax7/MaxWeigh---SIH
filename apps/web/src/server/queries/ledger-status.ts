@@ -14,6 +14,9 @@ export interface LedgerStatus {
  * §9, §10 P2) and is too heavy to repeat on every page render.
  */
 export async function getLedgerStatus(): Promise<LedgerStatus> {
-  const [head] = await db.select({ lastHash: auditHead.lastHash }).from(auditHead).where(eq(auditHead.id, 1));
+  const [head] = await db
+    .select({ lastHash: auditHead.lastHash })
+    .from(auditHead)
+    .where(eq(auditHead.id, 1));
   return { headHash: head?.lastHash ?? null };
 }

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { getActiveLabId } from '@/server/active-lab';
-import { can } from '@/server/rbac';
 import { getLabMemberships } from '@/server/queries/lab-memberships';
 import { getLedgerStatus } from '@/server/queries/ledger-status';
+import { can } from '@/server/rbac';
 import type { AppSession } from '@/server/session';
 import { AppShellClient } from './AppShellClient';
 import { PRIMARY_NAV, SECONDARY_NAV } from './nav-config';
@@ -12,7 +12,13 @@ import { PRIMARY_NAV, SECONDARY_NAV } from './nav-config';
  * filtering, the ledger head hash and lab memberships are real data, not
  * stubs re-fetched by a client component.
  */
-export async function AppShell({ session, children }: { session: AppSession; children: ReactNode }) {
+export async function AppShell({
+  session,
+  children,
+}: {
+  session: AppSession;
+  children: ReactNode;
+}) {
   const [labs, ledger] = await Promise.all([getLabMemberships(session.user.id), getLedgerStatus()]);
   const activeLabId = (await getActiveLabId()) ?? labs[0]?.id ?? '';
 

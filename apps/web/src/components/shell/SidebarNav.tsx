@@ -5,11 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { NAV_ICONS } from './icons';
@@ -17,7 +13,15 @@ import type { NavItem } from './nav-config';
 
 const COLLAPSE_STORAGE_KEY = 'tula:sidebar-collapsed';
 
-function NavLink({ item, collapsed, active }: { item: NavItem; collapsed: boolean; active: boolean }) {
+function NavLink({
+  item,
+  collapsed,
+  active,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  active: boolean;
+}) {
   const Icon = NAV_ICONS[item.icon];
   const link = (
     <Link
@@ -122,7 +126,9 @@ export function SidebarNav({
           {collapsed ? (
             <span className="sr-only">Ledger {ledgerVerified ? 'verified' : 'unverified'}</span>
           ) : (
-            <span className="tabular">Ledger: {ledgerVerified ? '✓' : '✕'} {ledgerHeadShort}</span>
+            <span className="tabular">
+              Ledger: {ledgerVerified ? '✓' : '✕'} {ledgerHeadShort}
+            </span>
           )}
         </Link>
 
@@ -130,7 +136,10 @@ export function SidebarNav({
           variant="ghost"
           size="sm"
           onClick={toggleCollapsed}
-          className={cn('w-full', collapsed ? 'justify-center px-2' : 'justify-start gap-2.5 px-2.5')}
+          className={cn(
+            'w-full',
+            collapsed ? 'justify-center px-2' : 'justify-start gap-2.5 px-2.5',
+          )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}

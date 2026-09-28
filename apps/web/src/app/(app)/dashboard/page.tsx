@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
 import { LayoutDashboard } from 'lucide-react';
+import type { Metadata } from 'next';
 import { PageHeader } from '@/components/shell/PageHeader';
 import { requireSession } from '@/server/session';
 

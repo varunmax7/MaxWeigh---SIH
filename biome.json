@@ -78,6 +78,7 @@
         "**/*.test.ts",
         "**/*.test.tsx",
         "scripts/**",
+        "apps/*/scripts/**",
         "**/vitest.config.ts",
         "packages/*/src/demo.ts"
       ],

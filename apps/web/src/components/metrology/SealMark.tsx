@@ -6,13 +6,7 @@ import { cn } from '@/lib/utils';
  * signatory tier, a VALID verification (implementation.md §7.1). Never used
  * for anything else, including "in progress toward sealed".
  */
-export function SealMark({
-  label,
-  className,
-}: {
-  label: string;
-  className?: string;
-}) {
+export function SealMark({ label, className }: { label: string; className?: string }) {
   return (
     <span
       className={cn(

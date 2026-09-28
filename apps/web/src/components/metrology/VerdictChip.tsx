@@ -2,7 +2,13 @@ import { CheckCircle2, CircleDashed, MinusCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** A per-test verdict (`@tula/engine`'s `Verdict`) or an evaluation's overall verdict (`EvaluationVerdict`). */
-export type VerdictChipValue = 'PASS' | 'FAIL' | 'INCOMPLETE' | 'NOT_APPLICABLE' | 'CONFORMS' | 'DOES_NOT_CONFORM';
+export type VerdictChipValue =
+  | 'PASS'
+  | 'FAIL'
+  | 'INCOMPLETE'
+  | 'NOT_APPLICABLE'
+  | 'CONFORMS'
+  | 'DOES_NOT_CONFORM';
 
 const CONFIG: Record<
   VerdictChipValue,

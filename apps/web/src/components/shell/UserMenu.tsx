@@ -11,15 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { signOutAction } from '@/server/actions/auth';
 
-export function UserMenu({
-  name,
-  email,
-  role,
-}: {
-  name: string;
-  email: string;
-  role: string;
-}) {
+export function UserMenu({ name, email, role }: { name: string; email: string; role: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

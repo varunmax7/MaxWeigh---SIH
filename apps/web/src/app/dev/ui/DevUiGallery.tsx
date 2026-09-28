@@ -41,11 +41,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -71,12 +67,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const VERDICTS: VerdictChipValue[] = [
@@ -108,13 +99,7 @@ const STATUSES: StatusChipValue[] = [
 
 const STANDARDS = ['WS-F2-09', 'WS-F2-14', 'WS-M1-02', 'WS-E2-01'];
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3 border-b border-border pb-8">
       <h2 className="text-lg font-semibold">{title}</h2>
@@ -126,7 +111,9 @@ function Section({
 function Swatch({ name, className }: { name: string; className: string }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <div className={`size-12 rounded-[var(--radius-control)] border border-border ${className}`} />
+      <div
+        className={`size-12 rounded-[var(--radius-control)] border border-border ${className}`}
+      />
       <span className="text-xs text-muted-foreground">{name}</span>
     </div>
   );
@@ -164,7 +151,9 @@ export function DevUiGallery() {
           <p className="text-sm">Body 14/20</p>
           <p className="text-[13px] leading-[18px]">Dense table 13/18</p>
           <p className="text-xs">Caption 12/16</p>
-          <p className="tabular text-sm">Tabular mono — 10.000 kg, EV-BLR-2026-0142, clause 3.5.1</p>
+          <p className="tabular text-sm">
+            Tabular mono — 10.000 kg, EV-BLR-2026-0142, clause 3.5.1
+          </p>
           <p className="font-devanagari text-base">Devanagari — तुला भार यंत्र सत्यापन</p>
         </div>
       </Section>
@@ -195,7 +184,9 @@ export function DevUiGallery() {
         <div className="w-64 space-y-1.5">
           <Label htmlFor="gallery-input-invalid">Invalid</Label>
           <Input id="gallery-input-invalid" aria-invalid defaultValue="10 002 g" />
-          <p className="text-xs text-fail">Indication must be a multiple of d (5 g). 10 002 g is not.</p>
+          <p className="text-xs text-fail">
+            Indication must be a multiple of d (5 g). 10 002 g is not.
+          </p>
         </div>
         <div className="w-56 space-y-1.5">
           <Label htmlFor="gallery-select">Standards</Label>
@@ -347,8 +338,8 @@ export function DevUiGallery() {
             <Button variant="outline">Show calculation</Button>
           </PopoverTrigger>
           <PopoverContent className="text-sm">
-            Ec = E − E0 = (+3.0) − (−0.5) = +3.5 g; |3.5| &gt; 2.5 g (MPE at 500 e, class III, clause
-            3.5.1) → Fail
+            Ec = E − E0 = (+3.0) − (−0.5) = +3.5 g; |3.5| &gt; 2.5 g (MPE at 500 e, class III,
+            clause 3.5.1) → Fail
           </PopoverContent>
         </Popover>
 
@@ -380,7 +371,8 @@ export function DevUiGallery() {
         </Button>
 
         <p className="w-full text-xs text-muted-foreground">
-          Command palette: press ⌘K on any signed-in page (it lives in the app shell, not this gallery).
+          Command palette: press ⌘K on any signed-in page (it lives in the app shell, not this
+          gallery).
         </p>
       </Section>
 
@@ -413,7 +405,16 @@ export function DevUiGallery() {
       </Section>
 
       <Section title="Metrology — SpecLine">
-        <SpecLine accuracyClass="III" max="30000" min="100" e="5" d="5" n={6000} unit="kg" />
+        <SpecLine
+          accuracyClass="III"
+          max="30000"
+          maxUnit="kg"
+          min="100"
+          e="5"
+          d="5"
+          smallUnit="g"
+          n={6000}
+        />
       </Section>
     </main>
   );

@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  */
 export default function AppLoading() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading">
+    <div className="space-y-6" role="status" aria-busy="true" aria-label="Loading">
       <div className="space-y-2 border-b border-border pb-4">
         <Skeleton className="h-7 w-64" />
         <Skeleton className="h-4 w-96" />

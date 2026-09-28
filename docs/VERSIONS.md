@@ -37,6 +37,19 @@ produces the same binary behaviour a certificate was issued under.
 | better-auth | 1.7.6 | packages/db (shared config + seed), apps/web |
 | canonicalize | 5.1.0 | packages/db (audit ledger hash chain, §9) |
 | qrcode | 1.5.4 | apps/web (TOTP enrolment QR) |
+| shadcn | 4.21.0 | apps/web (component source generator; also a runtime import, `shadcn/tailwind.css`) |
+| radix-ui | 1.6.7 | apps/web (Radix's single consolidated package — the shadcn CLI's current default, not per-primitive `@radix-ui/react-*`) |
+| @base-ui/react | 1.8.0 | apps/web (Base UI — this shadcn version's Combobox is built on it, not Radix) |
+| class-variance-authority | 0.7.1 | apps/web (`ui/` variant classnames) |
+| cn | 0.4.0 | apps/web (`clsx` + `tailwind-merge`, generated as `src/lib/utils.ts`'s `cn`) |
+| lucide-react | 1.48.0 | apps/web (icons) |
+| tw-animate-css | 1.4.0 | apps/web (Tailwind v4 animation utilities the generated components use) |
+| next-themes | 0.4.6 | apps/web (pinned to `defaultTheme="light"`, `enableSystem={false}` — no toggle built in P3, see `app/layout.tsx`) |
+| sonner | 2.0.8 | apps/web (toast, §7.6) |
+| cmdk | 1.1.1 | apps/web (⌘K command palette, §7.4) |
+| @fontsource/ibm-plex-sans, -mono, -sans-devanagari | 5.3.0 | apps/web (self-hosted per-weight `@import`s in `globals.css`, §7.3) |
+| @playwright/test | 1.63.0 | apps/web (devDependency; `test:e2e`, §10 P3) |
+| @axe-core/playwright | 4.13.0 | apps/web (devDependency; the `/login` + `/dev/ui` accessibility check) |
 
 `tsx` is also a root devDependency, used to run `scripts/check-no-float-mass.ts`
 and `scripts/gen-methodology.ts`, and (P2) a devDependency of `packages/db` for
@@ -61,10 +74,13 @@ field-for-field against the installed `better-auth@1.7.6` source.
 | Object storage (S3 API) | chrislusf/seaweedfs:latest | Substitutes for MinIO, whose images are no longer public — see `docs/QUESTIONS.md` #4 |
 | SMTP (dev) | axllent/mailpit:latest | UI on http://localhost:8025 |
 
-Added later (recorded when the phase installs them): shadcn/ui +
-Radix + lucide-react (P3), TanStack Table, Recharts, nuqs, cmdk, sonner (P3–P9),
-Playwright, `docx`, `@signpdf/*`, `sharp` (P8),
-`@aws-sdk/client-s3` (P6), `fast-check` (P1).
+Added later (recorded when the phase installs them): TanStack Table, Recharts,
+nuqs (P5–P9), `docx`, `@signpdf/*`, `sharp` (P8), `@aws-sdk/client-s3` (P6),
+`fast-check` (P1).
+
+Playwright's browser binary (Chromium only) is installed separately via
+`npx playwright install --with-deps chromium` — not tracked by `pnpm-lock.yaml`,
+so a fresh clone needs that command once before `test:e2e` can run.
 
 Deliberately **not** installed: `tsup` (TypeScript 7 incompatibility — packages build with
 `tsc`, see `docs/QUESTIONS.md` #5).

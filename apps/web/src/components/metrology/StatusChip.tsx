@@ -5,9 +5,9 @@ import {
   Clock,
   FileEdit,
   FlaskConical,
+  type LucideIcon,
   RotateCcw,
   ShieldAlert,
-  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -89,13 +89,7 @@ const TONE: Record<StatusChipValue, string> = {
 };
 
 /** A workflow status = icon + text + colour, never colour alone (implementation.md §7.7). */
-export function StatusChip({
-  status,
-  className,
-}: {
-  status: StatusChipValue;
-  className?: string;
-}) {
+export function StatusChip({ status, className }: { status: StatusChipValue; className?: string }) {
   const Icon = ICONS[status];
   return (
     <span

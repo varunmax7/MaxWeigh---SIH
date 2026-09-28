@@ -41,7 +41,13 @@ export function EnrollForm() {
 
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" autoComplete="current-password" required />
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+          />
         </div>
 
         <Button type="submit" disabled={starting} className="w-full">

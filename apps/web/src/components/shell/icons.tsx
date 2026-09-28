@@ -7,10 +7,10 @@ import {
   FileStack,
   LayoutDashboard,
   ListChecks,
+  type LucideIcon,
   ScrollText,
   Settings,
   Wrench,
-  type LucideIcon,
 } from 'lucide-react';
 import type { NavIconName } from './nav-config';
 

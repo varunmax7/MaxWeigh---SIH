@@ -24,7 +24,10 @@ export function Topbar({
 }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
-      <Link href={ROUTES.dashboard} className="flex items-center gap-1.5 font-semibold text-primary">
+      <Link
+        href={ROUTES.dashboard}
+        className="flex items-center gap-1.5 font-semibold text-primary"
+      >
         <Scale aria-hidden="true" className="size-5" />
         Tula
       </Link>

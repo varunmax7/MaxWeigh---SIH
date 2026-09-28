@@ -5,7 +5,7 @@
 | P0 Foundation | ☑ | 2026-09-27 | 2026-09-28 | command output below |
 | P1 Engine | ☑ | 2026-09-28 | 2026-09-28 | coverage report + demo output below |
 | P2 Core | ☑ | 2026-09-28 | 2026-09-28 | command output below |
-| P3 UI system | ☐ | | | docs/screens/p3/ |
+| P3 UI system | ☑ | 2026-09-28 | 2026-09-28 | docs/screens/p3/ |
 | P4 Master data | ☐ | | | |
 | P5 Intake | ☐ | | | |
 | P6 Workspace | ☐ | | | |
@@ -191,6 +191,76 @@ Lint: 0 errors, 2 info-level style suggestions (pre-existing, packages/engine).
 - P4/P5/P9: full cross-entity search (model/manufacturer/applicant, not just `ref_no`) needs denormalized snapshot columns or a search view (`docs/QUESTIONS.md` #18).
 - P7: enforce the step-up TOTP window (`session.freshAge = 300`, already configured) on tier approvals, seal and revoke.
 - P9/P10: surface the daily audit-chain head hash on the dashboard and email it to the Controller as an external anchor (§9); the nightly check itself already runs and logs.
+
+## P3 — Design system and app shell
+
+- [x] Tokens (§7.2) — `globals.css` already carried them from P0; P3 added self-hosted fonts (`@fontsource/ibm-plex-{sans,mono,sans-devanagari}`, per-weight `@import`s: 400/500/600), `--popover`/`--accent` (needed by the generated components), and a `.dark` block (no toggle built yet — ships light by default per §7.2's own instruction).
+- [x] `npx shadcn@latest init` (base `radix`, no monorepo scaffold) + `add`: badge, button, combobox, command, dialog, dropdown-menu, input, label, popover, select, sheet, skeleton, sonner, table, tabs, tooltip. Plus a hand-built `Stepper` (not in shadcn's registry). shadcn's own `globals.css` overwrite was replaced with our exact tokens; the generated components' `--radius-sm/md/lg` were remapped to our fixed panel/control/chip scale (8/6/4px) instead of a proportional `--radius` base.
+- [x] Shell (`components/shell/`): `AppShell` (server — fetches session, lab memberships, ledger status, filters nav by `can()`) → `AppShellClient` (owns ⌘K state) → `Topbar`, `SidebarNav` (collapsible, localStorage-persisted, ledger status footer), `LabSwitcher`, `CommandPalette`, `NotificationBell` (stub), `UserMenu`, `PageHeader`, `Breadcrumbs`. Wired into `(app)/layout.tsx`, replacing the bare pass-through from P2.
+- [x] Metrology basics (`components/metrology/`): `VerdictChip`, `StatusChip`, `ClassBadge`, `SpecLine`, `MassValue`, `ErrorInE`, `SealMark` — typed against `@tula/engine`'s real `Verdict`/`EvaluationVerdict`/`AccuracyClass`/`Dec`/`DisplayUnit`, not ad hoc strings.
+- [x] Login, TOTP-challenge and TOTP-enrolment pages restyled with the shadcn primitives (`Input`/`Label`/`Button`) in place of raw HTML elements; behaviour unchanged from P2.
+- [x] `(app)/error.tsx`, `(app)/loading.tsx` (skeleton-shaped), `(app)/not-found.tsx`, root `not-found.tsx`.
+- [x] `/dev/ui` — every primitive, every metrology component, typography scale, colour tokens; 404s under `NODE_ENV=production` (verified with a real `next build` + `next start`, not just the source check).
+- [x] `scripts/check-no-raw-hex.ts`, with a narrow `check-no-raw-hex: allow` escape hatch (used once, for `viewport.themeColor`, which renders into a `<meta>` tag and structurally cannot reference a CSS custom property).
+- [x] Playwright + `@axe-core/playwright`, `apps/web/e2e/a11y.spec.ts`: 0 serious/critical violations on `/login` and `/dev/ui`, plus a keyboard-operability check on `/login`. Found and fixed two real violations this surfaced (see Decisions): a critical unlabelled combobox trigger, and tabs' inactive-label contrast falling to 4.28:1 under shadcn's own default styling.
+
+### Acceptance evidence
+
+```
+$ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
+  ✓ /login has no serious or critical accessibility violations
+  ✓ /dev/ui has no serious or critical accessibility violations
+  ✓ login is fully keyboard-operable with a visible focus ring
+  3 passed (4.2s)
+
+$ pnpm tsx scripts/check-no-raw-hex.ts
+check-no-raw-hex: OK — scanned 75 files in apps/web/src, no violations.
+
+$ pnpm build   # next build, then next start, confirming production behaviour
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/auth/[...all]
+├ ƒ /api/v1/health
+├ ƒ /dashboard
+├ ○ /dev/ui
+├ ƒ /enroll-2fa
+├ ƒ /login
+└ ƒ /verify-2fa
+$ curl -o /dev/null -w '%{http_code}' localhost:3000/dev/ui   # next start (production)
+404
+$ curl -o /dev/null -w '%{http_code}' localhost:3000/login    # next start (production)
+200
+
+Screenshots: docs/screens/p3/{login,dev-ui,dashboard-empty,dashboard-sidebar-collapsed}.png
+(dashboard-empty.png signed in as TESTING_OFFICER — confirms nav is
+permission-filtered live: Dashboard/Evaluations/My tests/Instruments/Reports
+only, no Audit log/Rule packs/Settings, "+ New evaluation" visible.)
+
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 14 successful (test, 229 total tests —
+unchanged from P2; P3's new tests are the Playwright suite above, run
+separately), 8 successful (build).
+Lint: 0 errors, 2 info-level style suggestions (pre-existing, packages/engine).
+```
+
+### Decisions
+- 2026-09-28 — Used the actual `npx shadcn@latest` CLI (v4.21, base `radix`) rather than hand-writing shadcn-style components: it produced real, well-built Radix/Base UI-backed primitives (Combobox is Base UI, everything else Radix) faithful to the tokens once the CLI's own `globals.css` overwrite was replaced with ours. `shadcn`, `radix-ui`, `@base-ui/react`, `cn`, `class-variance-authority`, `tw-animate-css` are the CLI's own runtime dependencies, not hand-picked.
+- 2026-09-28 — Fonts are self-hosted via `@fontsource/*` npm packages (`@import`ed per-weight in `globals.css`), not `next/font/local` — the packages already ship ready CSS + woff2 files shaped for exactly this, and the shadcn `init` had already added a `next/font/google` (Geist) import that was removed as inconsistent with §7.3's named typeface.
+- 2026-09-28 — `next-themes`' `ThemeProvider` is pinned `defaultTheme="light"` / `enableSystem={false}` (`app/layout.tsx`) — required by the generated `sonner.tsx`'s `useTheme()` call, and matches §7.2's "ship light as default" with no toggle built yet.
+- 2026-09-28 — Nav icons are looked up by a string key (`NavIconName` in `nav-config.ts`) client-side (`shell/icons.tsx`), not stored as component references on the shared `NavItem` data — `AppShell` (Server Component) passing a `NavItem[]` containing `lucide-react` component functions into the Client Component tree failed at runtime ("Functions cannot be passed directly to Client Components"), a real bug caught by actually running the app, not by `tsc` or lint.
+- 2026-09-28 — `biome-ignore` comments only suppress a JSX element's diagnostic when they are: (a) a single line, (b) directly and only immediately above the element's opening tag, with no other comment or attribute line between. A wrapped multi-line reason, or two stacked `// biome-ignore` lines for two different rules on the same node, both silently fail to suppress (the second either "has no effect" or the diagnostic just stays active with no acknowledgement at all) — found by trial and error fixing `components/ui/input-group.tsx`'s two vendor a11y warnings, not documented anywhere obvious. Future `biome-ignore` comments on a JSX element: one line, one rule, directly touching the tag.
+- 2026-09-28 — `SpecLine` takes separate `maxUnit` and `smallUnit` props instead of one `unit` for every field — a single-unit version rounded Min/e/d to `0` whenever they were far smaller than Max (exactly §7.4's own example: Max in kg, Min/e/d in g). Caught by actually reading the `/dev/ui` screenshot, not by inspection.
+
+### Deviations from implementation.md
+- None beyond what's logged in `docs/QUESTIONS.md` #21–#23 (nav-permission mapping, the ledger footer's "verified" meaning, and the active-lab cookie having no reader yet) — all interpretive gaps in an otherwise prescriptive spec, not departures from it.
+
+### Follow-ups
+- P4 onward: every lab-scoped query must read `server/active-lab.ts`'s `getActiveLabId()` (`docs/QUESTIONS.md` #23) — nothing enforces this today.
+- P4–P9: revisit each nav item's permission gate once its real page exists (`docs/QUESTIONS.md` #21).
+- P9/P10: the sidebar's ledger status should surface the nightly `verifyChain()` job's actual last result, not just "a head hash exists" (`docs/QUESTIONS.md` #22).
+- A theme toggle (dark mode is fully tokened in `globals.css` but unreachable) — no phase currently calls for one; add if a screen spec ever does.
+- The screenshot script (`apps/web/scripts/screenshot-p3.ts`) is a one-off for this phase's acceptance evidence, not a generic tool — a future phase wanting the same treatment should either generalize it or write its own.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8

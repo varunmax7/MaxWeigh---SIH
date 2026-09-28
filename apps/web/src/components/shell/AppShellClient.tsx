@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import type { LabMembership } from '@/server/queries/lab-memberships';
 import { CommandPalette } from './CommandPalette';
 import type { NavItem } from './nav-config';

@@ -13,13 +13,7 @@ import type { LabMembership } from '@/server/queries/lab-memberships';
 import { setActiveLabAction } from './actions';
 
 /** Only rendered for users in more than one lab (implementation.md §7.4). */
-export function LabSwitcher({
-  labs,
-  activeLabId,
-}: {
-  labs: LabMembership[];
-  activeLabId: string;
-}) {
+export function LabSwitcher({ labs, activeLabId }: { labs: LabMembership[]; activeLabId: string }) {
   const [pending, startTransition] = useTransition();
   if (labs.length <= 1) return null;
 

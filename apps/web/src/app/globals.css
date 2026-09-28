@@ -71,10 +71,8 @@
   --radius-control: 6px;
   --radius-chip: 4px;
 
-  --font-sans:
-    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono:
-    "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
   --font-devanagari: "IBM Plex Sans Devanagari", var(--font-sans);
 }
 

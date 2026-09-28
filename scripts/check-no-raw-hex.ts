@@ -71,7 +71,9 @@ function main(): void {
   const violations = files.flatMap(scanFile);
 
   if (violations.length === 0) {
-    console.log(`check-no-raw-hex: OK — scanned ${files.length} files in apps/web/src, no violations.`);
+    console.log(
+      `check-no-raw-hex: OK — scanned ${files.length} files in apps/web/src, no violations.`,
+    );
     return;
   }
 
