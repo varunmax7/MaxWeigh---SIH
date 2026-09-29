@@ -43,6 +43,13 @@
       "when": 1790635949836,
       "tag": "0005_p7_notification_email_state_and_review_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0006_p9_materialized_views",
+      "breakpoints": true
     }
   ]
 }

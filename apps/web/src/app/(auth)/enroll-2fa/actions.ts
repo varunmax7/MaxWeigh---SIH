@@ -5,15 +5,7 @@ import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import { ROUTES } from '@/lib/routes';
 import { auth } from '@/server/auth';
-
-export interface StartEnrollmentState {
-  status: 'idle' | 'error' | 'started';
-  message?: string;
-  qrDataUrl?: string;
-  backupCodes?: string[];
-}
-
-export const START_ENROLLMENT_INITIAL_STATE: StartEnrollmentState = { status: 'idle' };
+import type { ConfirmEnrollmentState, StartEnrollmentState } from './state';
 
 /** Enables TOTP for the signed-in user and returns its QR code + one-time backup codes. */
 export async function startEnrollmentAction(
@@ -43,13 +35,6 @@ export async function startEnrollmentAction(
     return { status: 'error', message: 'Incorrect password.' };
   }
 }
-
-export interface ConfirmEnrollmentState {
-  status: 'idle' | 'error';
-  message?: string;
-}
-
-export const CONFIRM_ENROLLMENT_INITIAL_STATE: ConfirmEnrollmentState = { status: 'idle' };
 
 /** Confirms enrolment with the first code from the authenticator app, completing sign-in. */
 export async function confirmEnrollmentAction(

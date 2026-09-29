@@ -10,6 +10,7 @@ export const QUEUES = {
   docxBuild: 'docx.build',
   thumbMake: 'thumb.make',
   analyticsRefresh: 'analytics.refresh',
+  reportsExport: 'reports.export',
   notifyEmail: 'notify.email',
   /** Nightly audit-ledger integrity check (implementation.md §9, P2). */
   auditVerify: 'audit.verify',

@@ -11,6 +11,7 @@ export const DB_SCHEMA = 'public' as const;
 /** Extensions the init script must have enabled before migrations run. */
 export const REQUIRED_EXTENSIONS = ['pg_trgm', 'pgcrypto'] as const;
 
+export * from './analytics.js';
 export * from './audit-ledger.js';
 export * from './auth-config.js';
 export * from './client.js';

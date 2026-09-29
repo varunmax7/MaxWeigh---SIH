@@ -5,12 +5,8 @@ import { useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  CONFIRM_ENROLLMENT_INITIAL_STATE,
-  confirmEnrollmentAction,
-  START_ENROLLMENT_INITIAL_STATE,
-  startEnrollmentAction,
-} from './actions';
+import { confirmEnrollmentAction, startEnrollmentAction } from './actions';
+import { CONFIRM_ENROLLMENT_INITIAL_STATE, START_ENROLLMENT_INITIAL_STATE } from './state';
 
 /**
  * Two steps in one page (implementation.md §9, §10 P2): re-enter the
