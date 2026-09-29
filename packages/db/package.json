@@ -29,6 +29,9 @@
   },
   "dependencies": {
     "@tula/config": "workspace:*",
+    "@tula/engine": "workspace:*",
+    "@tula/report": "workspace:*",
+    "@tula/rulepacks": "workspace:*",
     "@tula/schemas": "workspace:*",
     "better-auth": "1.7.6",
     "canonicalize": "5.1.0",

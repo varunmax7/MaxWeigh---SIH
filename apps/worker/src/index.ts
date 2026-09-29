@@ -2,9 +2,11 @@ import { env, loadRootEnv } from '@tula/config';
 import { createDb } from '@tula/db';
 import { PgBoss } from 'pg-boss';
 import { chromium } from 'playwright';
+import { makeAnalyticsRefresh } from './jobs/analytics-refresh.js';
 import { makeDocxBuild } from './jobs/docx-build.js';
 import { makeReportRender } from './jobs/report-render.js';
 import { makeReportSign } from './jobs/report-sign.js';
+import { makeReportsExport } from './jobs/reports-export.js';
 import { makeThumbMake } from './jobs/thumb-make.js';
 import { makeVerifyAuditChain } from './jobs/verify-audit-chain.js';
 import { logger } from './logger.js';
@@ -51,6 +53,11 @@ async function main(): Promise<void> {
   await boss.work(QUEUES.reportRender, makeReportRender(db, storage, config, enqueue, getBrowser));
   await boss.work(QUEUES.reportSign, makeReportSign(db, storage, config, enqueue));
   await boss.work(QUEUES.docxBuild, makeDocxBuild(db, storage));
+  await boss.work(QUEUES.reportsExport, makeReportsExport(db, storage));
+
+  // Dashboard analytics (implementation.md §5, §10 P9): every 5 min.
+  await boss.schedule(QUEUES.analyticsRefresh, '*/5 * * * *', null);
+  await boss.work(QUEUES.analyticsRefresh, makeAnalyticsRefresh(db));
 
   logger.info({ queues: ALL_QUEUES }, 'worker ready');
 

@@ -164,6 +164,28 @@ export const revokeReportInputSchema = z.object({
   totpCode: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your authenticator app.'),
 });
 
+/**
+ * Reports repository filters (implementation.md §7.5, §10 P9) — shared by
+ * the filtered list query, the CSV export route and the bulk ZIP export job,
+ * so the three can never see a different row set for what the officer
+ * thinks is "the same filtered view".
+ */
+export const reportsFilterSchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  accuracyClass: z.string().trim().max(20).optional(),
+  verdict: z.string().trim().max(30).optional(),
+  status: z.string().trim().max(20).optional(),
+  manufacturerId: z.uuid().optional(),
+  issuedFrom: z.iso.date().optional(),
+  issuedTo: z.iso.date().optional(),
+});
+
+/** Enqueues `reports.export` (implementation.md §10 P9 "bulk ZIP export job"). */
+export const exportReportsZipInputSchema = z.object({
+  labId: z.uuid(),
+  filters: reportsFilterSchema,
+});
+
 export type ReportModel = z.infer<typeof reportModelSchema>;
 export type ReportModelLab = z.infer<typeof reportModelLabSchema>;
 export type ReportModelParty = z.infer<typeof reportModelPartySchema>;

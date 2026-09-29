@@ -741,6 +741,91 @@ FOUND — every expected string present in a real Word table.
 - Confirm `docs/QUESTIONS.md` #35 (QR hash: model vs PDF), #36 (certificate template), #37 (revoke reason category), #39 (attachment thumbnails) with the human owner; #38 (verify-page rate limiting) is P11's to pick up.
 - `resolveFromRoot()` (`packages/config`) is currently only used by `report-sign.ts`; sweep other file-path env values (none exist yet beyond `SIGNING_P12_PATH`) if a future phase adds one, so the same `cwd`-mismatch class of bug can't reappear silently.
 
+## P9 — Repository, search and dashboard
+
+- [x] Reports repository (`(app)/reports`): search (`pg_trgm` similarity + `ilike` across report no./certificate no./manufacturer/model, ranked by `greatest(similarity(...))`), filters (class, verdict, status, manufacturer, issued date range), columns (report no., certificate no., manufacturer, model, class, Max, verdict, issued, status), row actions (open via row click, PDF/DOCX download via `ReportRowActions`' kebab menu reusing P8's `getReportDownloadUrlsAction`, verify link to `/verify/[certOrReportNo]`), CSV export (`GET /api/v1/reports/export`, synchronous — a few thousand already-indexed rows fits one request), bulk ZIP export job (`reports.export` queue, `apps/worker/src/jobs/reports-export.ts`: fetches every matching PDF/DOCX from storage, zips with `jszip`, uploads, notifies the requester).
+- [x] `reports.export_ready` notification + a real `NotificationBell` (§7.4's stub, still empty since P3): 30 s polling (`getMyNotificationsAction`), unread badge, "Mark all read" (reuses P7's `markNotificationsReadAction`), a Download button on export-ready rows (`getNotificationDownloadUrlAction`, presigned). Needed to make bulk ZIP export a complete feature rather than a job with no way to retrieve its output — see Decisions.
+- [x] ⌘K palette (`CommandPalette.tsx`) wired to `globalSearchAction` → `server/queries/search.ts`: evaluations/reports lab-scoped by trigram similarity on `ref_no`/`report_no`/`certificate_no`, models/manufacturers unscoped (shared catalog), grouped results, 200 ms debounce, ≥ 2 characters. Static "Go to"/"Actions" groups remain for an empty query.
+- [x] Instrument model history timeline (`(app)/instruments/models/[id]`): `listModelEvaluationHistory` scoped to the *viewer's* lab memberships (plural — a model can be tested at more than one lab), rendered as a vertical timeline with status/verdict chips.
+- [x] Dashboard (`(app)/dashboard`, P3's placeholder): KPI strip (5-cell bordered row, live `count(*) filter` query — never the materialized views, so it can't be stale relative to "direct SQL counts"), `ThroughputChart` (stacked issued/not-conforming bars, 12 months, inline SVG, no charting library — same convention as `ErrorEnvelopeChart`), `VerdictDonut` (CONFORMS/DOES_NOT_CONFORM ring + a per-class legend), `NeedsYourAction` (reuses P7's `listNeedsYourAction`, already role-aware and SLA-aged), "Recent evaluations" (reuses `EvaluationsTable`). FY/class filters persisted via nuqs (`dashboard/search-params.ts`). Role-aware ordering: the needs-your-action panel moves above the KPI strip whenever it has rows (naturally empty for ADMIN/AUDITOR, so no per-role branching needed).
+- [x] Materialized views (`packages/db/migrations/0006_p9_materialized_views.sql`): `v_eval_monthly`, `v_verdict_by_class`, `v_turnaround` (all `REFRESH ... CONCURRENTLY` via one `refresh_analytics_views()` SQL function, unique-indexed for it), refreshed by the worker's new `analytics.refresh` job every 5 min (`apps/worker/src/jobs/analytics-refresh.ts`, `boss.schedule('*/5 * * * *')`). `v_pending_actions` (§5's fourth named view) was **not** built — see Decisions.
+- [x] Seed extension (`pnpm db:seed --volume`, `packages/db/src/seed-volume*.ts`): ~10 000 synthetic historical evaluations across all 7 labs and ~2.5 years, every verdict from a real `evaluateTest()` call against engine-computed, schema-valid observations (never fabricated) — see Decisions for the one documented exception. Idempotent (skips entirely if synthetic data already exists). New dependencies on `packages/db`: `@tula/engine`, `@tula/report`, `@tula/rulepacks` (needed to drive the real engine/report pipeline from a seed script; no circular dependency — verified before adding).
+- [x] `scripts/bench-search.ts` (`pnpm bench:search`): reruns the reports-repository query shape directly, p50/p95/p99 over 60 varied queries, fails the process if p95 ≥ 300 ms.
+
+### Acceptance evidence
+
+```
+$ pnpm typecheck && pnpm lint && pnpm test
+Tasks: 14 successful (typecheck), 0 errors (lint, Biome — 406 files), 14
+successful (test — 331 tests across engine/config/rulepacks/schemas/report/
+worker/db/web, incl. 3 new dashboard.test.ts cases, 3 new
+components/shell/actions.test.ts cases pinning the setActiveLabAction fix
+below, and apps/worker/src/queues.test.ts's updated queue-name list).
+
+$ pnpm db:seed --volume
+--volume complete in 93s: {"ISSUED":8800,"PENDING_T1":197,"RETURNED":165,
+"PLANNED":178,"PENDING_T2":201,"IN_TESTING":192,"REVOKED":88,"PENDING_T3":179}
+# Re-run: "--volume: synthetic data already present, skipping (idempotent)."
+# 10 000 evaluations total; 7950 ISSUED/CONFORMS + 850 ISSUED/DOES_NOT_CONFORM
+# (≈9.7% forced-fail rate, matching the ~10% target); 8038 certificate
+# numbers minted (7950 + 88 CONFORMS-then-REVOKED) — none for the
+# DOES_NOT_CONFORM rows, as §8.1 requires.
+
+$ pnpm tsx scripts/bench-search.ts
+Reports repository search — 1348 reports in RRSL-BLR, 60 queries
+  p50: 8.1 ms   p95: 10.7 ms   p99: 11.3 ms
+PASS: p95 within the 300 ms budget.   # 300 ms budget, actual ~30x headroom
+
+# apps/web/src/server/queries/dashboard.test.ts (3 tests, real DB): all 5 KPI
+# strip numbers match a hand-written count(*) filter query exactly; the
+# accuracyClass filter narrows identically; getVerdictsByClass's sum equals
+# a direct ISSUED count once refresh_analytics_views() has run.
+
+# Manual verification of the real running app (authenticated curl + a
+# directly-set active_lab_id cookie, since sign-in alone doesn't pick one):
+# GET /dashboard → 200, KPI strip (293/18/14/239·93%/18) verified byte-for-
+#   byte against psql count(*) filter for the same fiscal-year predicate.
+# GET /reports → 200, real rows (TR-RRSL-BLR-2026-0956 etc.), no errors.
+# GET /api/v1/reports/export?status=ISSUED&verdict=CONFORMS → 200, real CSV.
+# GET /api/v1/reports/export?q=weighbridge → 200, fuzzy match works.
+# GET /instruments/models/<id> → 200, real evaluation-history timeline with
+#   status/verdict chips server-rendered.
+# apps/worker/src/jobs/reports-export.ts run directly (not mocked) against
+#   the real DB/storage/notify chain: queried 95 matching reports, uploaded
+#   a real 22-byte (empty — no synthetic PDFs exist) ZIP to SeaweedFS
+#   (confirmed via HeadObjectCommand: exists, correct Content-Type), and
+#   inserted a real reports.export_ready notification row with the exact
+#   expected message and payload shape.
+# `claude-in-chrome` (browser automation) is disabled in this environment's
+#   settings — the same deviation recorded in every phase since P4; verified
+#   instead via authenticated curl against the real dev server + direct SQL,
+#   as above.
+```
+
+### Decisions
+- 2026-09-29 — **`getDashboardKpis`'s `= any($array)` construct silently produced `PostgresError: op ANY/ALL (array) requires array on right side`** — found live, not by inspection: `postgres-js` parameterizes a plain JS array as a row/tuple (`($1, $2, $3)`), not a Postgres array literal, so `= ANY(...)` never works with it. Fixed by switching to drizzle's own `inArray(...)` embedded inside the `sql` FILTER clause, which produces correct SQL. No other file in this phase used the same `= ANY` pattern (checked). **Anyone writing a raw multi-value `sql` filter against this driver should use `inArray()`/`sql.join`, never a bare array parameter with `= ANY`.**
+- 2026-09-29 — **A second real bug in the same query, found the same way: `db.execute<{month: Date, ...}>()`'s generic is a type assertion only** — postgres-js does not actually parse an aggregate `timestamp` expression (`date_trunc('month', ...)` read back out of a materialized view) into a runtime `Date` the way a normal typed-column read does, so `row.month.toISOString()` threw `TypeError: row.month.toISOString is not a function` in dev. Fixed by typing the generic as `string` (the true runtime shape) and calling `new Date(row.month)` before formatting.
+- 2026-09-29 — **`(app)/dashboard/DashboardFilters.tsx` (a Client Component) importing `fiscalYearOf` from `server/queries/dashboard.ts` pulled the entire server-only module — and therefore `@tula/db`, and therefore `dotenv`'s `child_process` import — into the browser bundle**, breaking the whole `(app)` layout with `Module not found: Can't resolve 'child_process'`. Caught by the same live curl check, not typecheck (cross-boundary server/client imports are a Next.js bundler-time failure, invisible to `tsc`). Fixed by extracting the pure fiscal-year math (no `@tula/db` dependency) into `@/lib/fiscal-year.ts`; `server/queries/dashboard.ts` now re-exports it for existing server-side callers, but the client filter bar and `dashboard/search-params.ts` (itself imported by both server and client) import the `@/lib` module directly. **General lesson for this codebase: a "just a date helper" function sitting in a `server/queries/*.ts` file is not safe to import from a Client Component even if the function itself touches no I/O — the whole file's import graph is what gets bundled.**
+- 2026-09-29 — **§4.5's change-point method (`P = I + ½e − ΔL`, not `P = I`) means "identical `I`/`L`" alone does not give a zero-error, always-passing observation** — the volume seed's first draft used a fixed `ΔL = '1.0'` for every row, which produced a non-zero `E = ½e − 1.0` whenever `e ≠ 2`, and every WEIGHING/ECCENTRICITY/ZERO_ACCURACY/REPEATABILITY row across five of the six spec archetypes failed for real, engine-computed reasons — the *entire* first 10k-row seed run came out 100% DOES_NOT_CONFORM. Found by inspecting the actual seeded verdicts (not assumed), root-caused by reading `error.ts`'s literal formula, fixed by setting `ΔL = ½e` (which makes `P = L` exactly, so `E = 0`) everywhere a zero-error observation is needed, and by rounding eccentricity's `(Max + T⁺)/3` load to the nearest multiple of `e` (`errorOfIndication` also rejects an `I` that isn't a multiple of `d`). Re-ran the full 10k seed after the fix: 90.3% CONFORMS / 9.7% DOES_NOT_CONFORM, matching the intended distribution.
+- 2026-09-29 — **The volume seed's cross-lab reviewer identities are new synthetic users (`synth.<role>.<lab-code>@tula.test`), never the base `main()` seed users.** The first draft added the 7 base role-users (`admin@tula.test` etc.) to all 7 labs' `lab_members` so every lab would have a tester/reviewer — this silently broke `apps/web/src/server/lab-access.test.ts`, which asserts `admin@tula.test` is specifically *not* a member of `RRSL-AMD` to exercise `assertLabMember`'s cross-tenant guard. Caught by the full `pnpm test` run, not anticipated in advance. Fixed by minting 5 new real (`auth.api.signUpEmail`) users per lab (`INTAKE_OFFICER`/`TESTING_OFFICER`/`SENIOR_TESTING_OFFICER`/`CHIEF_METROLOGY_OFFICER`/`CONTROLLER` — the only roles the seed loop actually drives) instead, and reverting the accidental 42 stray `lab_members` rows the first attempt had already written. `packages/db/src/seed-volume-masterdata.ts`'s `ensureLabReviewers()`.
+- 2026-09-29 — **Found and fixed a real, pre-existing cross-tenant authorization gap while building on top of it: `setActiveLabAction` (`components/shell/actions.ts`, P3) wrote the `active_lab_id` cookie with no membership check at all.** Every P4–P9 read that trusts `getActiveLabId()` as already lab-scoped (§11) — including this phase's three new query modules — was therefore only as safe as the LabSwitcher UI never offering another lab, which a hand-set cookie trivially bypasses. Fixed at the one place it needed fixing: the action now verifies `lab_members` before writing the cookie and silently no-ops otherwise (same fail-closed shape as `getReportDownloadUrlsAction`). Not part of this phase's assigned scope, but directly exercised by it (three new lab-scoped query files built on the same trust boundary) and cheap/safe to fix in place rather than propagate further.
+- 2026-09-29 — **`v_pending_actions` (§5's fourth named materialized view, "per tier with SLA age") was not built.** P7 already shipped `listNeedsYourAction()` (`server/queries/review.ts`) as a live, role-aware query with the identical shape — building a second, *materialized* (and therefore up to 5 min stale) version of the same "what's pending, how old" fact would either diverge from it or duplicate it outright, and a reviewer's own queue silently missing an item they just returned for up to 5 minutes is a real usability bug, not a cosmetic one. The dashboard's "Needs your action" panel calls `listNeedsYourAction` directly.
+- 2026-09-29 — **The verdict donut is CONFORMS/DOES_NOT_CONFORM only, with a per-class breakdown as a text legend beside it** rather than a colour-per-class ring. §7.5 says "Verdicts by class (donut)" without specifying the encoding; a ring with as many hues as accuracy classes in use would stop reading as "pass vs fail" at a glance, which is what a donut's two-colour convention is for everywhere else in this app (`VerdictChip`, the KPI strip's "Does not conform" cell). `getVerdictsByClass` still returns the full `(class, verdict, count)` breakdown the legend needs.
+- 2026-09-29 — **Reports-repository search uses `pg_trgm` similarity + `ilike`, not the `evaluations.search` tsvector column** (docs/QUESTIONS.md #18, now closed — see below).
+- 2026-09-29 — **`reports.export`'s filter → `WHERE` logic is duplicated by hand in `apps/worker/src/jobs/reports-export.ts`**, not imported from `apps/web/src/server/queries/reports.ts`'s `reportFilterConditions` — same precedent `apps/web/src/server/queues.ts`'s own comment documents for `QUEUES` (an app is not a workspace package another app can import from). `scripts/bench-search.ts` keeps a third copy for the same reason (a root script isn't part of the `apps/web` package either). All three are commented as needing to stay in sync by hand.
+- 2026-09-29 — **CSV export is a synchronous route handler; bulk ZIP export is a queued job.** A few thousand already-indexed rows formatted as text fits comfortably in one request/response; fetching potentially thousands of PDF/DOCX objects from S3-compatible storage and zipping them does not. This is also why CSV needed no new notification/UI plumbing and ZIP did (see the `NotificationBell` task above).
+
+### Deviations from implementation.md
+- 2026-09-29 — **§5's `v_pending_actions` materialized view does not exist** — see Decisions (superseded by P7's `listNeedsYourAction`, which is strictly fresher). (§ update: y — §5's view list should note this one is intentionally a live query, not materialized.)
+- 2026-09-29 — **§10 P9 names no browser-based verification, but every phase since P4 has noted `claude-in-chrome` is unavailable** — unchanged this phase. Verified instead via authenticated curl against the real dev server (cookie-based session + a directly-set `active_lab_id` cookie), direct `psql` count comparisons, and one worker job run directly against real Postgres/SeaweedFS. What a real browser would additionally cover: the ⌘K palette's actual keyboard-driven open/search/select flow, the NotificationBell's live 30 s poll and dropdown interaction, and the reports-table kebab menu's click-to-open behaviour. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **No `apps/web/e2e/reports.spec.ts` or `dashboard.spec.ts`.** Same root cause as the line above; `pnpm --filter web test:e2e` was not run this phase (Playwright itself needs a browser binary this environment doesn't have configured either).
+
+### Follow-ups
+- Write `apps/web/e2e/reports.spec.ts` / `dashboard.spec.ts` once browser automation is available: ⌘K keyboard flow, NotificationBell polling/interaction, reports-table row-action menu.
+- `docs/QUESTIONS.md` #18 (cross-entity search) is now closed by this phase's trigram approach — no further action needed unless a future phase wants true full-text ranking (stemming, phrase queries) over the current substring-similarity ranking.
+- Consider whether the base `main()` seed users (P2) should also get a documented "these stay single-lab, on purpose, for `lab-access.test.ts`" comment near their definition in `packages/db/src/seed.ts` — this phase found the constraint only by breaking it once.
+- `setActiveLabAction`'s fix (see Decisions) closes the immediate gap; no other cookie-trusting read was found to have the same issue. A regression test now pins it (`components/shell/actions.test.ts`, 3 cases: member lab writes the cookie, non-member lab silently no-ops, no session silently no-ops).
+
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8
 - [ ] Table 6 MPE bands (§4.4) and in-service factor

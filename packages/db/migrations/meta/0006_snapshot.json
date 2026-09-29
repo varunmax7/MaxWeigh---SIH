@@ -130,12 +130,8 @@
           "name": "audit_log_actor_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -143,12 +139,8 @@
           "name": "audit_log_lab_id_labs_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -251,12 +243,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -367,12 +355,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -382,9 +366,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -447,12 +429,8 @@
           "name": "two_factor_user_id_user_id_fk",
           "tableFrom": "two_factor",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -553,9 +531,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -694,12 +670,8 @@
           "name": "env_readings_sensor_id_env_sensors_id_fk",
           "tableFrom": "env_readings",
           "tableTo": "env_sensors",
-          "columnsFrom": [
-            "sensor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sensor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -707,12 +679,8 @@
           "name": "env_readings_lab_id_labs_id_fk",
           "tableFrom": "env_readings",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -778,12 +746,8 @@
           "name": "env_sensors_lab_id_labs_id_fk",
           "tableFrom": "env_sensors",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -888,12 +852,8 @@
           "name": "reference_weight_sets_lab_id_labs_id_fk",
           "tableFrom": "reference_weight_sets",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -901,12 +861,8 @@
           "name": "reference_weight_sets_cert_attachment_id_attachments_id_fk",
           "tableFrom": "reference_weight_sets",
           "tableTo": "attachments",
-          "columnsFrom": [
-            "cert_attachment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["cert_attachment_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1023,12 +979,8 @@
           "name": "attachments_evaluation_id_evaluations_id_fk",
           "tableFrom": "attachments",
           "tableTo": "evaluations",
-          "columnsFrom": [
-            "evaluation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["evaluation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1036,12 +988,8 @@
           "name": "attachments_test_id_evaluation_tests_id_fk",
           "tableFrom": "attachments",
           "tableTo": "evaluation_tests",
-          "columnsFrom": [
-            "test_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["test_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1049,12 +997,8 @@
           "name": "attachments_uploaded_by_user_id_fk",
           "tableFrom": "attachments",
           "tableTo": "user",
-          "columnsFrom": [
-            "uploaded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploaded_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1165,12 +1109,8 @@
           "name": "comments_evaluation_id_evaluations_id_fk",
           "tableFrom": "comments",
           "tableTo": "evaluations",
-          "columnsFrom": [
-            "evaluation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["evaluation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1178,12 +1118,8 @@
           "name": "comments_test_id_evaluation_tests_id_fk",
           "tableFrom": "comments",
           "tableTo": "evaluation_tests",
-          "columnsFrom": [
-            "test_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["test_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1191,12 +1127,8 @@
           "name": "comments_parent_id_comments_id_fk",
           "tableFrom": "comments",
           "tableTo": "comments",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1204,12 +1136,8 @@
           "name": "comments_author_id_user_id_fk",
           "tableFrom": "comments",
           "tableTo": "user",
-          "columnsFrom": [
-            "author_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1349,12 +1277,8 @@
           "name": "evaluation_tests_evaluation_id_evaluations_id_fk",
           "tableFrom": "evaluation_tests",
           "tableTo": "evaluations",
-          "columnsFrom": [
-            "evaluation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["evaluation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1362,12 +1286,8 @@
           "name": "evaluation_tests_completed_by_user_id_fk",
           "tableFrom": "evaluation_tests",
           "tableTo": "user",
-          "columnsFrom": [
-            "completed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["completed_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1377,11 +1297,7 @@
         "evaluation_tests_unique": {
           "name": "evaluation_tests_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "evaluation_id",
-            "test_code",
-            "range_index"
-          ]
+          "columns": ["evaluation_id", "test_code", "range_index"]
         }
       },
       "policies": {},
@@ -1603,12 +1519,8 @@
           "name": "evaluations_lab_id_labs_id_fk",
           "tableFrom": "evaluations",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1616,12 +1528,8 @@
           "name": "evaluations_applicant_id_applicants_id_fk",
           "tableFrom": "evaluations",
           "tableTo": "applicants",
-          "columnsFrom": [
-            "applicant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["applicant_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1629,12 +1537,8 @@
           "name": "evaluations_manufacturer_id_manufacturers_id_fk",
           "tableFrom": "evaluations",
           "tableTo": "manufacturers",
-          "columnsFrom": [
-            "manufacturer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manufacturer_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1642,12 +1546,8 @@
           "name": "evaluations_model_id_instrument_models_id_fk",
           "tableFrom": "evaluations",
           "tableTo": "instrument_models",
-          "columnsFrom": [
-            "model_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["model_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1655,12 +1555,8 @@
           "name": "evaluations_assigned_tester_id_user_id_fk",
           "tableFrom": "evaluations",
           "tableTo": "user",
-          "columnsFrom": [
-            "assigned_tester_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["assigned_tester_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1668,12 +1564,8 @@
           "name": "evaluations_created_by_user_id_fk",
           "tableFrom": "evaluations",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1683,9 +1575,7 @@
         "evaluations_ref_no_unique": {
           "name": "evaluations_ref_no_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "ref_no"
-          ]
+          "columns": ["ref_no"]
         }
       },
       "policies": {},
@@ -1728,12 +1618,8 @@
           "name": "lab_members_user_id_user_id_fk",
           "tableFrom": "lab_members",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1741,12 +1627,8 @@
           "name": "lab_members_lab_id_labs_id_fk",
           "tableFrom": "lab_members",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1754,10 +1636,7 @@
       "compositePrimaryKeys": {
         "lab_members_user_id_lab_id_pk": {
           "name": "lab_members_user_id_lab_id_pk",
-          "columns": [
-            "user_id",
-            "lab_id"
-          ]
+          "columns": ["user_id", "lab_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1846,9 +1725,7 @@
         "labs_code_unique": {
           "name": "labs_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -1916,12 +1793,8 @@
           "name": "applicants_manufacturer_id_manufacturers_id_fk",
           "tableFrom": "applicants",
           "tableTo": "manufacturers",
-          "columnsFrom": [
-            "manufacturer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manufacturer_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1999,12 +1872,8 @@
           "name": "instrument_models_manufacturer_id_manufacturers_id_fk",
           "tableFrom": "instrument_models",
           "tableTo": "manufacturers",
-          "columnsFrom": [
-            "manufacturer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["manufacturer_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2014,10 +1883,7 @@
         "instrument_models_manufacturer_model_unique": {
           "name": "instrument_models_manufacturer_model_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "manufacturer_id",
-            "model_name"
-          ]
+          "columns": ["manufacturer_id", "model_name"]
         }
       },
       "policies": {},
@@ -2182,12 +2048,8 @@
           "name": "approvals_report_version_id_report_versions_id_fk",
           "tableFrom": "approvals",
           "tableTo": "report_versions",
-          "columnsFrom": [
-            "report_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["report_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2195,12 +2057,8 @@
           "name": "approvals_user_id_user_id_fk",
           "tableFrom": "approvals",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2306,12 +2164,8 @@
           "name": "report_versions_report_id_reports_id_fk",
           "tableFrom": "report_versions",
           "tableTo": "reports",
-          "columnsFrom": [
-            "report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2319,12 +2173,8 @@
           "name": "report_versions_created_by_user_id_fk",
           "tableFrom": "report_versions",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2334,10 +2184,7 @@
         "report_versions_report_version_unique": {
           "name": "report_versions_report_version_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "report_id",
-            "version"
-          ]
+          "columns": ["report_id", "version"]
         }
       },
       "policies": {},
@@ -2422,12 +2269,8 @@
           "name": "reports_evaluation_id_evaluations_id_fk",
           "tableFrom": "reports",
           "tableTo": "evaluations",
-          "columnsFrom": [
-            "evaluation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["evaluation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2437,23 +2280,17 @@
         "reports_evaluation_id_unique": {
           "name": "reports_evaluation_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "evaluation_id"
-          ]
+          "columns": ["evaluation_id"]
         },
         "reports_report_no_unique": {
           "name": "reports_report_no_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "report_no"
-          ]
+          "columns": ["report_no"]
         },
         "reports_certificate_no_unique": {
           "name": "reports_certificate_no_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "certificate_no"
-          ]
+          "columns": ["certificate_no"]
         }
       },
       "policies": {},
@@ -2513,12 +2350,8 @@
           "name": "share_links_report_version_id_report_versions_id_fk",
           "tableFrom": "share_links",
           "tableTo": "report_versions",
-          "columnsFrom": [
-            "report_version_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["report_version_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2526,12 +2359,8 @@
           "name": "share_links_created_by_user_id_fk",
           "tableFrom": "share_links",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2541,9 +2370,7 @@
         "share_links_token_hash_unique": {
           "name": "share_links_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -2642,12 +2469,8 @@
           "name": "notifications_user_id_user_id_fk",
           "tableFrom": "notifications",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2694,12 +2517,8 @@
           "name": "number_sequences_lab_id_labs_id_fk",
           "tableFrom": "number_sequences",
           "tableTo": "labs",
-          "columnsFrom": [
-            "lab_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["lab_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2707,11 +2526,7 @@
       "compositePrimaryKeys": {
         "number_sequences_lab_id_year_kind_pk": {
           "name": "number_sequences_lab_id_year_kind_pk",
-          "columns": [
-            "lab_id",
-            "year",
-            "kind"
-          ]
+          "columns": ["lab_id", "year", "kind"]
         }
       },
       "uniqueConstraints": {},
@@ -2796,12 +2611,8 @@
           "name": "rulepacks_created_by_user_id_fk",
           "tableFrom": "rulepacks",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2809,12 +2620,8 @@
           "name": "rulepacks_published_by_user_id_fk",
           "tableFrom": "rulepacks",
           "tableTo": "user",
-          "columnsFrom": [
-            "published_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["published_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2822,12 +2629,8 @@
           "name": "rulepacks_confirmed_by_user_id_fk",
           "tableFrom": "rulepacks",
           "tableTo": "user",
-          "columnsFrom": [
-            "confirmed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["confirmed_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2835,10 +2638,7 @@
       "compositePrimaryKeys": {
         "rulepacks_id_version_pk": {
           "name": "rulepacks_id_version_pk",
-          "columns": [
-            "id",
-            "version"
-          ]
+          "columns": ["id", "version"]
         }
       },
       "uniqueConstraints": {},

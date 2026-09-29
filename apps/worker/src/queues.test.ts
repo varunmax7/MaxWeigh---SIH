@@ -10,6 +10,7 @@ describe('worker queues', () => {
       'notify.email',
       'report.render',
       'report.sign',
+      'reports.export',
       'thumb.make',
     ]);
   });

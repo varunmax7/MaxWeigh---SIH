@@ -4,6 +4,10 @@
  *
  * Idempotent: re-running skips labs and users that already exist, so it is
  * safe to run again after `pnpm db:migrate` on the same database.
+ *
+ * `pnpm db:seed --volume` additionally runs `seedVolume()` (§10 P9): ~10 000
+ * synthetic historical evaluations/reports for performance-testing the
+ * Reports repository, dashboard and search — see `seed-volume.ts`.
  */
 import { env, loadRootEnv } from '@tula/config';
 import { betterAuth } from 'better-auth';
@@ -11,6 +15,7 @@ import { eq } from 'drizzle-orm';
 import { buildAuthOptions } from './auth-config.js';
 import { createDb } from './client.js';
 import { labMembers, labs, ROLES, type Role, user } from './schema/index.js';
+import { seedVolume } from './seed-volume.js';
 
 loadRootEnv();
 const config = env();
@@ -92,6 +97,10 @@ async function main() {
   }
 
   console.info('Seed complete.');
+
+  if (process.argv.includes('--volume')) {
+    await seedVolume(db, auth, config.SEED_PASSWORD);
+  }
 }
 
 await main();

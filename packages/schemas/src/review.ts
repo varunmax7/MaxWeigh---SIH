@@ -56,5 +56,11 @@ export const markNotificationsReadInputSchema = z.object({
 });
 
 /** `notifications.type` — one per workflow event that needs someone's attention. */
-export const NOTIFICATION_TYPES = ['review.pending', 'review.returned', 'review.approved'] as const;
+export const NOTIFICATION_TYPES = [
+  'review.pending',
+  'review.returned',
+  'review.approved',
+  /** §10 P9 "bulk ZIP export job" — the only way its completion reaches the requester. */
+  'reports.export_ready',
+] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

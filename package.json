@@ -25,7 +25,8 @@
     "infra:ps": "docker compose -f infra/docker-compose.yml --env-file .env ps",
     "infra:logs": "docker compose -f infra/docker-compose.yml --env-file .env logs -f",
     "check:no-float-mass": "tsx scripts/check-no-float-mass.ts",
-    "gen:methodology": "tsx scripts/gen-methodology.ts"
+    "gen:methodology": "tsx scripts/gen-methodology.ts",
+    "bench:search": "tsx scripts/bench-search.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
@@ -44,6 +45,8 @@
     ]
   },
   "dependencies": {
+    "@tula/config": "workspace:*",
+    "@tula/db": "workspace:*",
     "@tula/engine": "workspace:*",
     "@tula/rulepacks": "workspace:*"
   }

@@ -9,12 +9,13 @@ import {
   applicants,
   attachments,
   envSensors,
+  evaluations,
   instrumentModels,
   labs,
   manufacturers,
   referenceWeightSets,
 } from '@tula/db';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/server/db';
 
 export async function getLab(id: string) {
@@ -84,6 +85,31 @@ export async function getInstrumentModel(id: string) {
     .innerJoin(manufacturers, eq(instrumentModels.manufacturerId, manufacturers.id))
     .where(eq(instrumentModels.id, id));
   return row ?? null;
+}
+
+/**
+ * Every evaluation of this model, newest first — the model page's "history
+ * timeline of every evaluation of that model with verdicts" (implementation.md
+ * §7.5, §10 P9). Models carry no `lab_id` (shared catalog), so this scopes
+ * by the caller's own lab memberships instead of one active lab (§11: every
+ * read is scoped to *the user's* labs — plural, here, since a model may have
+ * been tested at more than one of them).
+ */
+export async function listModelEvaluationHistory(modelId: string, memberLabIds: string[]) {
+  if (memberLabIds.length === 0) return [];
+  return db
+    .select({
+      id: evaluations.id,
+      refNo: evaluations.refNo,
+      labId: evaluations.labId,
+      status: evaluations.status,
+      overallVerdict: evaluations.overallVerdict,
+      createdAt: evaluations.createdAt,
+      issuedAt: evaluations.issuedAt,
+    })
+    .from(evaluations)
+    .where(and(eq(evaluations.modelId, modelId), inArray(evaluations.labId, memberLabIds)))
+    .orderBy(desc(evaluations.createdAt));
 }
 
 /**
