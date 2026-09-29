@@ -169,7 +169,15 @@ async function completedEvaluation(suffix: string, completerEmail = 'testing.off
       completedAt: new Date(),
       completedBy: testerId,
       verdict: 'PASS',
-      result: { verdict: 'PASS', rows: [], summary: {}, issues: [], steps: [] },
+      result: {
+        verdict: 'PASS',
+        rows: [],
+        summary: {},
+        issues: [],
+        steps: [],
+        engineVersion: '0.1.0',
+        rulepack: { id: 'oiml-r76-1-2006', version: '1.0.0' },
+      },
     })
     .where(
       and(
@@ -585,8 +593,54 @@ describe('return with comments and versioning (implementation.md §6.3, §10 P7)
     expect(await statusOf(evaluationId)).toMatchObject({ status: 'PENDING_T2' });
   });
 
-  it('refuses to seal at tier 3 until the signing pipeline exists, but still lets the Controller return', async () => {
-    const { evaluationId } = await completedEvaluation('tier3');
+  it('seals at tier 3: evaluation → ISSUED, a certificate number minted for CONFORMS', async () => {
+    const { evaluationId } = await completedEvaluation('tier3-seal');
+    await setSession('testing.officer@tula.test', 'TESTING_OFFICER');
+    expect((await submitForReviewAction({ evaluationId })).ok).toBe(true);
+    const version = await currentVersion(evaluationId);
+
+    await setSession('senior.testing.officer@tula.test', 'SENIOR_TESTING_OFFICER');
+    expect(
+      (
+        await decideTier1Action({
+          evaluationId,
+          modelSha256: version.modelSha256,
+          decision: 'APPROVE',
+          totpCode: '123456',
+        })
+      ).ok,
+    ).toBe(true);
+    await setSession('chief.metrology.officer@tula.test', 'CHIEF_METROLOGY_OFFICER');
+    expect(
+      (
+        await decideTier2Action({
+          evaluationId,
+          modelSha256: version.modelSha256,
+          decision: 'APPROVE',
+          totpCode: '123456',
+        })
+      ).ok,
+    ).toBe(true);
+
+    await setSession('controller@tula.test', 'CONTROLLER');
+    const sealed = await decideTier3Action({
+      evaluationId,
+      modelSha256: version.modelSha256,
+      decision: 'APPROVE',
+      totpCode: '123456',
+    });
+    expect(sealed).toMatchObject({ ok: true, data: { status: 'ISSUED', tier: 3 } });
+    expect(await statusOf(evaluationId)).toMatchObject({ status: 'ISSUED', verdict: 'CONFORMS' });
+
+    const [reportRow] = await db
+      .select({ certificateNo: reports.certificateNo })
+      .from(reports)
+      .where(eq(reports.evaluationId, evaluationId));
+    expect(reportRow?.certificateNo).toMatch(/^IN-R76-RRSL-BLR-\d{4}-\d{4}$/);
+  });
+
+  it('still lets the Controller return at tier 3, with no certificate minted', async () => {
+    const { evaluationId } = await completedEvaluation('tier3-return');
     await setSession('testing.officer@tula.test', 'TESTING_OFFICER');
     expect((await submitForReviewAction({ evaluationId })).ok).toBe(true);
     const version = await currentVersion(evaluationId);
@@ -616,16 +670,6 @@ describe('return with comments and versioning (implementation.md §6.3, §10 P7)
 
     await setSession('controller@tula.test', 'CONTROLLER');
     expect(
-      await decideTier3Action({
-        evaluationId,
-        modelSha256: version.modelSha256,
-        decision: 'APPROVE',
-        totpCode: '123456',
-      }),
-    ).toEqual({ ok: false, code: 'RULE' });
-    expect(await statusOf(evaluationId)).toMatchObject({ status: 'PENDING_T3' });
-
-    expect(
       (
         await decideTier3Action({
           evaluationId,
@@ -637,6 +681,12 @@ describe('return with comments and versioning (implementation.md §6.3, §10 P7)
       ).ok,
     ).toBe(true);
     expect(await statusOf(evaluationId)).toMatchObject({ status: 'RETURNED' });
+
+    const [reportRow] = await db
+      .select({ certificateNo: reports.certificateNo })
+      .from(reports)
+      .where(eq(reports.evaluationId, evaluationId));
+    expect(reportRow?.certificateNo).toBeNull();
   });
 
   it('notifies the tier that now has to act, and never the person who acted', async () => {

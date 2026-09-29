@@ -29,14 +29,11 @@ export function ReviewDecisionPanel({
   tier,
   modelSha256,
   approveVerb,
-  canSeal,
 }: {
   evaluationId: string;
   tier: 1 | 2 | 3;
   modelSha256: string;
   approveVerb: string;
-  /** False for tier 3 until the signing pipeline (P8) exists — the action itself also refuses. */
-  canSeal: boolean;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<'approve' | 'return' | null>(null);
@@ -75,9 +72,7 @@ export function ReviewDecisionPanel({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button onClick={() => setDialog('approve')} disabled={tier === 3 && !canSeal}>
-        {approveVerb}
-      </Button>
+      <Button onClick={() => setDialog('approve')}>{approveVerb}</Button>
       <Button variant="outline" onClick={() => setDialog('return')}>
         Return with comments
       </Button>

@@ -1,5 +1,5 @@
 import { instrumentMetrologySchema } from '@tula/schemas';
-import { ClipboardCheck, Pencil } from 'lucide-react';
+import { ClipboardCheck, FileText, Pencil } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -86,6 +86,14 @@ export default async function EvaluationOverviewPage({
                 <Link href={`/evaluations/${evaluation.id}/review`}>
                   <ClipboardCheck className="size-4" />
                   Review
+                </Link>
+              </Button>
+            ) : null}
+            {hasReport ? (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/evaluations/${evaluation.id}/report`}>
+                  <FileText className="size-4" />
+                  Report
                 </Link>
               </Button>
             ) : null}

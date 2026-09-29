@@ -7,4 +7,5 @@
  */
 export const QUEUES = {
   thumbMake: 'thumb.make',
+  reportRender: 'report.render',
 } as const;

@@ -7,4 +7,6 @@
  */
 
 export * from './diff.js';
+export * from './docx/buildReportDocx.js';
 export * from './model.js';
+export * from './print/index.js';

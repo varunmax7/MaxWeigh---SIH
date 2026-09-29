@@ -16,107 +16,36 @@
  *    today's master data happens to say.
  */
 import { createHash } from 'node:crypto';
+import { aggregateEvaluation, type VerdictBearing } from '@tula/engine';
 import {
-  aggregateEvaluation,
-  type CalcStep,
-  type TestResult,
-  type Verdict,
-  type VerdictBearing,
-} from '@tula/engine';
+  REPORT_MODEL_VERSION,
+  type ReportModel,
+  type ReportModelAttachment,
+  type ReportModelParty,
+  type ReportModelStandard,
+  type ReportModelTest,
+  reportModelSchema,
+} from '@tula/schemas';
 import canonicalize from 'canonicalize';
 
-/** Version of the `ReportModel` shape; bumped when the snapshot layout changes. */
-export const REPORT_MODEL_VERSION = 1 as const;
-
-export interface ReportModelLab {
-  code: string;
-  name: string;
-  address: string | null;
-  state: string | null;
-  accreditationNo: string | null;
-}
-
-export interface ReportModelParty {
-  name: string;
-  address: string | null;
-  country: string | null;
-}
-
-export interface ReportModelStandard {
-  setCode: string;
-  oimlClass: string;
-  certificateNo: string | null;
-  dueOn: string | null;
-}
-
-export interface ReportModelTest {
-  testCode: string;
-  rangeIndex: number;
-  sequence: number;
-  clause: string | null;
-  title: string | null;
-  applicability: string;
-  naReason: string | null;
-  verdict: Verdict | null;
-  params: Record<string, unknown> | null;
-  observations: Record<string, unknown> | null;
-  result: TestResult | null;
-  envStart: Record<string, unknown> | null;
-  envEnd: Record<string, unknown> | null;
-  /** ISO 8601, or null while the test is still open. */
-  completedAt: string | null;
-  completedByName: string | null;
-  standards: ReportModelStandard[];
-}
-
-export interface ReportModelAttachment {
-  filename: string;
-  caption: string | null;
-  mime: string;
-  sha256: string;
-}
-
-export interface ReportModel {
-  modelVersion: typeof REPORT_MODEL_VERSION;
-  reportNo: string;
-  version: string;
-  lab: ReportModelLab;
-  evaluation: {
-    refNo: string;
-    sampleSerials: string[];
-    priority: string;
-  };
-  applicant: ReportModelParty;
-  manufacturer: ReportModelParty;
-  instrument: {
-    modelName: string;
-    modelCode: string | null;
-    spec: Record<string, unknown>;
-  };
-  provenance: {
-    rulepackId: string;
-    rulepackVersion: string;
-    engineVersion: string;
-  };
-  tests: ReportModelTest[];
-  summary: {
-    overallVerdict: string;
-    rows: { code: string; verdict: Verdict }[];
-  };
-  /** §8.1 item 8: the methodology annex, generated from the engine's own `CalcStep`s. */
-  methodology: { testCode: string; rangeIndex: number; steps: CalcStep[] }[];
-  attachments: ReportModelAttachment[];
-}
+export type {
+  ReportModel,
+  ReportModelAttachment,
+  ReportModelParty,
+  ReportModelStandard,
+  ReportModelTest,
+};
+export { REPORT_MODEL_VERSION };
 
 export interface BuildReportModelInput {
   reportNo: string;
   version: string;
-  lab: ReportModelLab;
+  lab: ReportModel['lab'];
   evaluation: { refNo: string; sampleSerials: string[] | null; priority: string };
   applicant: ReportModelParty;
   manufacturer: ReportModelParty;
-  instrument: { modelName: string; modelCode: string | null; spec: Record<string, unknown> };
-  provenance: { rulepackId: string; rulepackVersion: string; engineVersion: string };
+  instrument: ReportModel['instrument'];
+  provenance: ReportModel['provenance'];
   tests: ReportModelTest[];
   attachments: ReportModelAttachment[];
 }
@@ -159,10 +88,19 @@ function buildSummary(tests: ReportModelTest[]): ReportModel['summary'] {
   };
 }
 
-/** Builds the immutable snapshot. Pure: same input, same bytes, same hash. */
+/**
+ * Builds the immutable snapshot. Pure: same input, same bytes, same hash.
+ *
+ * Parsed through `reportModelSchema` before returning — not just typed —
+ * because everything downstream (the print route, the worker's PDF/DOCX
+ * jobs) reads this same shape back out of `report_versions.model`, a
+ * `jsonb` column Postgres does not enforce our TS shape on. Validating once,
+ * here, at the one place the shape is actually constructed, means a bad
+ * snapshot can never be written in the first place.
+ */
 export function buildReportModel(input: BuildReportModelInput): ReportModel {
   const tests = sortTests(input.tests);
-  return {
+  return reportModelSchema.parse({
     modelVersion: REPORT_MODEL_VERSION,
     reportNo: input.reportNo,
     version: input.version,
@@ -186,7 +124,7 @@ export function buildReportModel(input: BuildReportModelInput): ReportModel {
         steps: test.result?.steps ?? [],
       })),
     attachments: [...input.attachments].sort((a, b) => a.sha256.localeCompare(b.sha256)),
-  };
+  });
 }
 
 /**

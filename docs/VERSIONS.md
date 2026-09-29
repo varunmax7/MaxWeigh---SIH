@@ -55,6 +55,10 @@ produces the same binary behaviour a certificate was issued under.
 | @aws-sdk/client-s3, @aws-sdk/s3-request-presigner | 3.1141.0 | apps/web, apps/worker (P4: `/api/v1/files`, thumbnail worker job) |
 | sharp | 0.35.5 | apps/worker (P4: `thumb.make` job) |
 | nuqs | 2.10.1 | apps/web (P5: `/evaluations` list filters, §7.5) |
+| playwright | 1.63.0 | apps/worker (P8: `report.render`, real dependency now — not just `@playwright/test`'s transitive copy) |
+| docx | 9.8.1 | packages/report (P8: the DOCX builder) |
+| @signpdf/signpdf, @signpdf/signer-p12, @signpdf/placeholder-plain | 3.3.0 | apps/worker (P8: `report.sign`, PAdES) |
+| jszip | 3.10.1 | packages/report (devDependency; P8's DOCX structural test — no LibreOffice in this environment, see docs/PROGRESS.md P8 Deviations) |
 
 `tsx` is also a root devDependency, used to run `scripts/check-no-float-mass.ts`
 and `scripts/gen-methodology.ts`, and (P2) a devDependency of `packages/db` for
@@ -81,8 +85,9 @@ field-for-field against the installed `better-auth@1.7.6` source.
 
 Added later (recorded when the phase installs them, now in the table above):
 TanStack Table, `file-type`, `@aws-sdk/client-s3`/`s3-request-presigner`, `sharp`
-(all P4), `nuqs` (P5), `fast-check` (P1). Still to come: Recharts, `docx`,
-`@signpdf/*` (P8).
+(all P4), `nuqs` (P5), `fast-check` (P1), `playwright`/`docx`/`@signpdf/*`/`jszip`
+(P8). `react`/`react-dom` were also added to `packages/report` (P8: the print
+components are real `.tsx`, not just data). Still to come: Recharts (P9).
 
 Playwright's browser binary (Chromium only) is installed separately via
 `npx playwright install --with-deps chromium` — not tracked by `pnpm-lock.yaml`,

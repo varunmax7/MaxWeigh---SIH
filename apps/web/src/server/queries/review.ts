@@ -19,6 +19,7 @@ import {
   notifications,
   reports,
   reportVersions,
+  shareLinks,
   user as userTable,
 } from '@tula/db';
 import type { CalcStep } from '@tula/engine';
@@ -48,6 +49,9 @@ export async function getReportForEvaluation(evaluationId: string) {
       modelSha256: reportVersions.modelSha256,
       changeSummary: reportVersions.changeSummary,
       status: reportVersions.status,
+      pdfKey: reportVersions.pdfKey,
+      pdfSha256: reportVersions.pdfSha256,
+      docxKey: reportVersions.docxKey,
       createdAt: reportVersions.createdAt,
       createdByName: userTable.name,
     })
@@ -58,6 +62,31 @@ export async function getReportForEvaluation(evaluationId: string) {
 
   const current = versions.find((v) => v.id === report.currentVersionId) ?? versions[0] ?? null;
   return { report, versions, current };
+}
+
+/** Active (not revoked, not yet expired) share links for a report, newest first. */
+export async function listShareLinks(reportId: string) {
+  const [current] = await db
+    .select({ currentVersionId: reports.currentVersionId })
+    .from(reports)
+    .where(eq(reports.id, reportId));
+  if (!current?.currentVersionId) return [];
+
+  return (
+    db
+      .select({
+        id: shareLinks.id,
+        expiresAt: shareLinks.expiresAt,
+        revokedAt: shareLinks.revokedAt,
+        createdByName: userTable.name,
+      })
+      .from(shareLinks)
+      .innerJoin(userTable, eq(shareLinks.createdBy, userTable.id))
+      .where(eq(shareLinks.reportVersionId, current.currentVersionId))
+      // `share_links` has no `created_at` — its uuid v7 `id` sorts
+      // chronologically on its own (implementation.md §5, QUESTIONS.md #20).
+      .orderBy(desc(shareLinks.id))
+  );
 }
 
 /** One version's stored `ReportModel`, for the diff view. */

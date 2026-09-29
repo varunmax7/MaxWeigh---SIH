@@ -1,11 +1,22 @@
 'use server';
 
-import { approvals, comments, type DbTx, evaluations, evaluationTests } from '@tula/db';
+import {
+  allocateNumber,
+  approvals,
+  comments,
+  type DbTx,
+  evaluations,
+  evaluationTests,
+  labs,
+  reports,
+} from '@tula/db';
 import type { EvaluationStatus } from '@tula/schemas';
 import { type ReviewTier, reviewDecisionInputSchema } from '@tula/schemas';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { ActionError, action } from '@/server/action';
+import { enqueue } from '@/server/jobs';
 import { labMembersWithRole, notifyUsers } from '@/server/notify';
+import { QUEUES } from '@/server/queues';
 import type { Permission } from '@/server/rbac';
 import { buildSnapshot } from '@/server/report-snapshot';
 import {
@@ -32,8 +43,6 @@ import {
 interface TierActionOptions {
   tier: ReviewTier;
   permission: Permission;
-  /** Tier 3's approval *is* the seal, which needs the signed-PDF pipeline of P8. */
-  allowApprove: boolean;
 }
 
 interface DecisionContext {
@@ -94,6 +103,29 @@ async function applyApprove(ctx: DecisionContext) {
     .set({ status: next, updatedAt: new Date(), rowVersion: sql`${evaluations.rowVersion} + 1` })
     .where(eq(evaluations.id, evaluationId));
 
+  // Tier 3's approval *is* the seal (§6.3: "Seals (signed PDF generated)").
+  // A certificate number is only minted for CONFORMS (§8.1) — the overall
+  // verdict was already fixed at submit time (`submitForReviewAction`
+  // stores `overallVerdict` from that same snapshot), so there is nothing
+  // left to compute here, only to mint. The PDF/DOCX themselves are the
+  // worker's job from here — enqueued by the caller once this transaction
+  // has actually committed (see the Decision note below `applyApprove`).
+  if (tier === 3 && evaluation.overallVerdict === 'CONFORMS') {
+    const [lab] = await tx
+      .select({ code: labs.code })
+      .from(labs)
+      .where(eq(labs.id, evaluation.labId));
+    if (lab) {
+      const year = new Date().getFullYear();
+      const seq = await allocateNumber(tx, evaluation.labId, year, 'CERT');
+      const certificateNo = `IN-R76-${lab.code}-${year}-${String(seq).padStart(4, '0')}`;
+      await tx
+        .update(reports)
+        .set({ certificateNo })
+        .where(eq(reports.currentVersionId, currentVersionId));
+    }
+  }
+
   const nextTier = pendingTier(next);
   if (nextTier) {
     await notifyUsers(tx, {
@@ -108,7 +140,7 @@ async function applyApprove(ctx: DecisionContext) {
     });
   }
 
-  return { status: next, tier, reopenedTests: 0 };
+  return { status: next, tier, reopenedTests: 0, reportVersionId: currentVersionId };
 }
 
 /** RETURN: the transition, the approval + comment record, reopening flagged tests, and notifying the tester. */
@@ -179,7 +211,12 @@ async function applyReturn(ctx: DecisionContext) {
     });
   }
 
-  return { status: 'RETURNED' as const, tier, reopenedTests: toReopen.length };
+  return {
+    status: 'RETURNED' as const,
+    tier,
+    reopenedTests: toReopen.length,
+    reportVersionId: currentVersionId,
+  };
 }
 
 /**
@@ -195,7 +232,7 @@ async function applyReturn(ctx: DecisionContext) {
  * Step-up comes after the cheap refusals and before any write, so a reviewer
  * is never asked for a code only to be told the report moved on.
  */
-function makeTierDecisionAction({ tier, permission, allowApprove }: TierActionOptions) {
+function makeTierDecisionAction({ tier, permission }: TierActionOptions) {
   return action(
     {
       schema: reviewDecisionInputSchema,
@@ -216,12 +253,6 @@ function makeTierDecisionAction({ tier, permission, allowApprove }: TierActionOp
         throw new ActionError(
           'CONFLICT',
           `This evaluation is not waiting on tier ${tier} — reload to see where it is now.`,
-        );
-      }
-      if (input.decision === 'APPROVE' && !allowApprove) {
-        throw new ActionError(
-          'RULE',
-          'Sealing and issuing the certificate is not available yet. Return the report with comments, or wait for the signing release.',
         );
       }
       if (input.decision === 'RETURN' && !input.comment) {
@@ -263,26 +294,27 @@ function makeTierDecisionAction({ tier, permission, allowApprove }: TierActionOp
 }
 
 /** Tier 1 — Senior testing officer verifies (§6.2 `review.tier1`). */
-export const decideTier1Action = makeTierDecisionAction({
-  tier: 1,
-  permission: 'review.tier1',
-  allowApprove: true,
-});
+export const decideTier1Action = makeTierDecisionAction({ tier: 1, permission: 'review.tier1' });
 
 /** Tier 2 — Chief metrology officer approves (§6.2 `review.tier2`). */
-export const decideTier2Action = makeTierDecisionAction({
-  tier: 2,
-  permission: 'review.tier2',
-  allowApprove: true,
-});
+export const decideTier2Action = makeTierDecisionAction({ tier: 2, permission: 'review.tier2' });
+
+const decideTier3ActionInner = makeTierDecisionAction({ tier: 3, permission: 'report.seal' });
 
 /**
- * Tier 3 — the Controller's seal issues the certificate, which needs the
- * signed-PDF pipeline of P8. Until then this action exists so a Controller can
- * still return a report that should not be sealed.
+ * Tier 3 — the Controller's seal (§6.2 `report.seal`). Wraps the shared
+ * handler only to enqueue `report.render` *after* it returns — `action()`'s
+ * transaction has committed by the time the awaited call resolves, so this
+ * is provably post-commit, unlike enqueueing from inside the handler itself
+ * (`server/notify.ts`'s docstring covers why that would be wrong: a job
+ * sent from inside a transaction survives that transaction's rollback).
  */
-export const decideTier3Action = makeTierDecisionAction({
-  tier: 3,
-  permission: 'report.seal',
-  allowApprove: false,
-});
+export async function decideTier3Action(
+  ...args: Parameters<typeof decideTier3ActionInner>
+): ReturnType<typeof decideTier3ActionInner> {
+  const result = await decideTier3ActionInner(...args);
+  if (result.ok && result.data.status === 'ISSUED') {
+    await enqueue(QUEUES.reportRender, { reportVersionId: result.data.reportVersionId });
+  }
+  return result;
+}

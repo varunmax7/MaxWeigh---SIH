@@ -196,7 +196,6 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
                 tier={tier}
                 modelSha256={current.modelSha256}
                 approveVerb={TIER_APPROVE_VERB[tier]}
-                canSeal={tier !== 3}
               />
             </div>
           ) : null}

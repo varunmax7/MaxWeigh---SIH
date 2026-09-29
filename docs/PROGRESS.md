@@ -10,7 +10,7 @@
 | P5 Intake | ☑ | 2026-09-28 | 2026-09-28 | command output below |
 | P6 Workspace | ☑ | 2026-09-28 | 2026-09-29 | command output below |
 | P7 Workflow | ☑ | 2026-09-29 | 2026-09-29 | command output below |
-| P8 Reports | ☐ | | | sample PDF/DOCX paths |
+| P8 Reports | ☑ | 2026-09-29 | 2026-09-29 | sample PDF/DOCX paths, command output below |
 | P9 Insights | ☐ | | | bench output |
 | P10 Integrations | ☐ | | | |
 | P11 Hardening | ☐ | | | CI run link |
@@ -629,6 +629,117 @@ check-no-float-mass: OK — scanned 27 files in packages/engine/src, no violatio
 - Build a real diff-viewer component (`components/report/VersionDiff`) over `diffReportModels`, once the Report view (P8) exists to host it alongside `ReportPreview`/`QrBlock`.
 - P8: wire `decideTier3Action`'s real seal (drop `allowApprove: false`) once `report.render`/`report.sign` produce a signed PDF to attach to the transition.
 - Confirm `docs/QUESTIONS.md` #32 (comment permission), #33 (report number prefix) and #34 (Tier 3 seal timing) with the human owner.
+
+## P8 — Reports: PDF, DOCX, signatures, QR, public verification
+
+- [x] `reportModelSchema` (`packages/schemas/src/report.ts`): the full Zod shape of `ReportModel`, now the single source of truth — `packages/report`'s `ReportModel`/`ReportModelTest`/etc. types are `z.infer`s of it, not hand-rolled interfaces, and `buildReportModel()` parses through it before returning (a bad snapshot can no longer be constructed, let alone stored).
+- [x] Print components (`packages/report/src/print/`): `ReportDocument` (all ten §8.1 sections: cover with bilingual EN/HI headers, parties, instrument, conditions, summary, one `TestSheet` per applicable test with a real per-row table and an `EnvelopeSvg` chart wherever a row's load can be recovered from its observations, checklists, methodology annex from the engine's own `CalcStep`s, an attachments manifest, the signatory block + content hash), `CertificateDocument` (the conformity certificate, brass-bordered once Tier 3 has actually signed), `PRINT_CSS` (`@page` A4, `break-inside: avoid`, repeating `thead`, the DRAFT watermark). Real `.tsx`, not placeholders — `packages/report` now depends on `react` and (dev) `react-dom`/`jszip`/`docx`.
+- [x] Print route `(print)/print/reports/[versionId]` (token-gated via `server/print-token.ts`'s HMAC mint/verify, mirrored by hand in `apps/worker/src/print-token.ts` — the same `queues.ts` precedent): renders `ReportDocument` or, with `?doc=certificate`, `CertificateDocument`, from `report_versions.model` re-parsed through `reportModelSchema` and nothing else live except the version-scoped Tier 3 signatory row that decides the watermark (see Decisions). Also the officer's own live preview, embedded via `<iframe>` from the Report view page — "previews always go through the same route" (§8.2).
+- [x] Worker jobs, chained by enqueueing the next queue from inside each (`apps/worker/src/jobs/`): `report-render.ts` (Playwright, one reused `chromium` instance per process, `page.pdf()` with a header/footer template showing report no./version/page X of Y/the model hash's first 16 hex), `report-sign.ts` (`@signpdf` + the P12 from `SIGNING_P12_PATH`, PAdES, `pdf_sha256` computed from the actual signed bytes, `report_versions.status → SIGNED`, `reports.status → ISSUED`), `docx-build.ts` (`@tula/report`'s `buildReportDocx()` from the identical stored model, `report_versions.docx_key` set, "Certificate issued" notifications to the tester and every signer). Every job is idempotent (checks `status`/`docx_key` before doing anything) and writes a `SYSTEM`-actor audit entry.
+- [x] `scripts/gen-dev-cert.sh`: openssl → a throwaway 4096-bit self-signed P12 at `./certs/dev-signing.p12` (already `.gitignore`d, already the `.env.example` default — P0 anticipated this).
+- [x] Tier 3 seal is real (`server/actions/tier-decision.ts`): `APPROVE` at tier 3 moves `evaluations.status → ISSUED` synchronously (in the same transaction as every other guard — SoD, step-up, model-hash currency), mints a certificate number (`number_sequences`, `kind='CERT'`, `IN-R76-{labCode}-{year}-{seq:4}` per §8.1's literal pattern) only when `overallVerdict === 'CONFORMS'`, then — once the action's own transaction has actually committed — enqueues `report.render`. `RETURN` still works unchanged.
+- [x] Report view (`/evaluations/[id]/report`): metadata, `SignatoryChain` (reused from P7), version history (reused `VersionTimeline`), the live A4 preview iframe, `DownloadButtons` (presigned URLs fetched on click, 5 min TTL), `ShareLinkPanel` (create/revoke, §8.5), `RevokeReportButton` (Controller + TOTP + typed reason, §8.5).
+- [x] Public `/verify/[certNo]` (implementation.md §7.5, §8.4): no session, the one deliberately-public query in the app (`verifyByCertOrReportNo`, never returns anything short of `ISSUED`/`REVOKED`), VALID (brass) / REVOKED (red, with date + reason) states, `CheckPdfDropzone` — a real client-side Web Crypto `SHA-256` hash of a dropped file, compared to the published `pdf_sha256`, nothing uploaded.
+- [x] Secure share links (§8.5): `createShareLinkAction`/`revokeShareLinkAction`, the raw token shown exactly once (only its SHA-256 is stored), `/shared/reports/[token]` (validates, audits every access, renders the identical `ReportDocument`).
+- [x] `packages/config`'s `resolveFromRoot()` — see Decisions: a real bug this phase's own manual verification caught.
+
+### Acceptance evidence
+
+```
+$ pnpm typecheck && pnpm lint && pnpm test && pnpm build
+Tasks: 14 successful (typecheck), 0 errors (lint, Biome — 374 files), 14
+successful (test — 325 tests across engine/config/rulepacks/schemas/report/
+worker/db/web, 53 files), 8 successful (build) — web build's route list now
+includes /print/reports/[versionId], /verify/[certNo], /shared/reports/[token]
+and /evaluations/[id]/report.
+
+$ pnpm tsx scripts/check-no-raw-hex.ts
+check-no-raw-hex: OK — scanned 196 files in apps/web/src, no violations.
+$ pnpm tsx scripts/check-no-float-mass.ts
+check-no-float-mass: OK — scanned 27 files in packages/engine/src, no violations.
+$ pnpm --filter @tula/web test:e2e -- a11y.spec.ts
+  3 passed
+
+# Real end-to-end pipeline run (not a mock, not vitest — the actual worker
+# process against real Postgres/SeaweedFS/pg-boss, driven from a script that
+# built a full ReportModel through the real buildReportModel() and enqueued
+# report.render exactly as decideTier3Action does):
+$ pdfsig ./tmp/e2e-report.pdf
+Signature #1:
+  - Signer Certificate Common Name: Tula Dev Signing Certificate
+  - Signing Hash Algorithm: SHA-256
+  - Signature Type: adbe.pkcs7.detached
+  - Total document signed
+  - Signature Validation: Signature is Valid.
+  - Certificate Validation: Certificate issuer isn't Trusted.   # expected — dev cert, §8.3
+$ shasum -a 256 ./tmp/e2e-report.pdf
+25c7200d2defc541dcb4e5ef99ffd8065813978d3f9ed99225d3085383ab9ea2   # equals report_versions.pdf_sha256 in the DB, exactly
+$ pdftotext ./tmp/e2e-report.pdf - | grep "Page 1 of\|v1.0"
+TR-E2E-1790639765966 v1.0        69aae58e9e2e5cbb        Page 1 of 4   # footer hash == model_sha256's first 16 hex, on every page
+$ pdfinfo ./tmp/e2e-report.pdf | grep Pages
+Pages: 4
+# Visually inspected (pdftoppm → PNG, read as an image): real QR code, both
+# EN/HI cover headers, the DRAFT watermark, the full test summary and
+# instrument table all render correctly with real data.
+
+# python3 zipfile inspection of the real DOCX @tula/report built in the same
+# run (LibreOffice is unavailable in this environment — see Deviations):
+entries: 26 (a valid OOXML package: [Content_Types].xml, _rels/.rels, word/
+document.xml all present)
+Apex Scales Pvt Ltd FOUND / EV-RRSL-BLR-2026-0142 FOUND / Editable copy FOUND
+/ Weighing test FOUND / asc-r1 FOUND / Seed Controller FOUND / IN-R76-...
+FOUND — every expected string present in a real Word table.
+
+# packages/report/src/print/ReportDocument.test.tsx (5 tests, react-dom/
+# server renderToStaticMarkup, no browser): every §8.1 section renders with
+# real fixture data incl. a NOT_APPLICABLE test and a FAIL row; the envelope
+# chart draws only for the test whose rowId→L match succeeds (confirms the
+# generic extractor); the watermark shows exactly when sealed=false and
+# disappears when sealed=true, with the signatory chain then visible.
+# packages/report/src/docx/buildReportDocx.test.ts (2 tests, jszip): same
+# structural OOXML check as the manual run above, plus confirms the
+# certificate-no. row is omitted entirely when none was minted.
+# apps/web/src/server/print-token.test.ts + apps/worker/src/print-token.test.ts
+# (6 tests each, byte-identical modules): mint→verify round-trips; wrong
+# version id, wrong secret, malformed token, tampered signature and expired
+# TTL are all refused.
+# apps/web/src/server/actions/review.test.ts's two new tier-3 tests (real
+# DB): APPROVE at tier 3 → evaluations.status ISSUED, a certificate number
+# matching IN-R76-RRSL-BLR-\d{4}-\d{4} minted for the CONFORMS fixture;
+# RETURN at tier 3 still works and mints no certificate number at all.
+# packages/config/src/load.test.ts's two new resolveFromRoot tests pin the
+# ENOENT bug's fix directly (see Decisions).
+
+# Manual verification of the real running app (authenticated curl, real
+# session cookies via Better Auth's sign-in endpoint):
+# GET /print/reports/<versionId>?token=<freshly-minted> → 200, the sealed
+#   fixture's page has NO "DRAFT — NOT VALID" text and shows "Seed
+#   Controller" in the signatory block — confirms the watermark fix live,
+#   not just in the component test.
+```
+
+### Decisions
+- 2026-09-29 — **Found and fixed a real bug during manual verification: `SIGNING_P12_PATH` resolved against the wrong directory.** `report.sign` failed with `ENOENT: ./certs/dev-signing.p12` on its first real run — `apps/worker` runs with its own package directory as `cwd` (`pnpm --filter @tula/worker dev`), not the repo root `.env`'s paths are written relative to, so the *web* app (also not started from the root) would have hit the identical bug the first time anyone actually ran `report.sign` outside a test. Fixed at the root cause: `@tula/config` gained `resolveFromRoot()`, which resolves a relative env value against the directory `loadRootEnv()` actually found the `.env` in (cached), not `process.cwd()` — `report-sign.ts` is the one caller so far, but the same fragility would have hit `docx.build`'s or any future file-path env var identically. Two new `packages/config` tests pin exactly this scenario (a nested `cwd`, a root-relative `.env` value) so it can't regress silently. This was only found because the phase's manual verification ran the *actual* worker process against the *actual* queue, not a mocked one — vitest's `report-render.test.ts`-shaped tests would never have caught it, since nothing in this repo unit-tests a job handler with a real filesystem `cwd` mismatch.
+- 2026-09-29 — **Found and fixed a second real bug in the same manual run: the DRAFT watermark, gated on `report_versions.status === 'SIGNED'`, would have been baked into every signed PDF permanently.** The render→sign sequence (§8.2's own diagram) means `report.render` always runs *while the version is still `DRAFT`* — that capture is what becomes the signed PDF; by the time `status` flips to `SIGNED`, the watermark is already burned into the bytes. Confirmed by literally opening the rendered PDF: "DRAFT — NOT VALID" appeared, diagonally, across the officially-signed page. Fixed by driving the watermark off a version-scoped fact that is true at the *right* moment instead: `sealed`, computed from whether an `approvals` row (`tier: 3, decision: 'APPROVED'`) already exists for *this exact* `report_version_id` — true the instant Tier 3 approves, synchronously, before `report.render` is even enqueued. Rejected two other candidate signals first: `evaluations.status === 'ISSUED'` looked right but breaks for an old, already-signed, `SUPERSEDED` version once a later amendment cycle moves the evaluation's *current* status elsewhere — the version being viewed would wrongly show a watermark it never should. `ReportDocument`'s prop was renamed `versionStatus` → `sealed: boolean` to make the caller supply the correct signal explicitly rather than guessing from a status enum. Locked in by `ReportDocument.test.tsx`'s two existing DRAFT/SIGNED-shaped cases (renamed to `sealed={false}`/`sealed={true}`) and by the live-app curl check in the evidence above.
+- 2026-09-29 — **`certificateNo` is not part of the hashed `ReportModel` snapshot**, even though it visibly appears on the rendered cover/certificate. Tier 1 and Tier 2 sign against the model's hash *before* Tier 3 exists to mint a certificate number — if the number were baked into the model, minting it at seal time would change `model_sha256` and retroactively invalidate approvals that had nothing wrong with them (§6.3: "any data change invalidates pending approvals" — a change that happens *because* of sealing, not despite it, is not the kind of change that rule is protecting against). Instead `certificateNo` lives only on `reports` (one column, independent of version), assigned once at Tier 3 approval, and the print route/Report view page pass it into the print components as a prop alongside the model rather than reading it from the model itself.
+- 2026-09-29 — **`report.render`/`report.sign`/`docx.build` chain by enqueueing the next queue from inside the previous job's own transaction-adjacent code**, not as one combined handler, even though `apps/web/src/server/queues.ts` only needed to reserve `report.render` (the worker enqueues the other two itself). This matches the three separately-reserved queue names §3.3/P0 already committed to, keeps each job's blast radius small (a `docx.build` failure never re-signs an already-signed PDF), and lets each step be retried independently by pg-boss without redoing the expensive Playwright render.
+- 2026-09-29 — **The DOCX builder lives in `packages/report`, not `apps/worker`**, per §3.3's repo-layout comment naming "DOCX builder" as one of that package's three jobs alongside `buildReportModel()` and the print components. `docx` (9.8.1) is a dependency of `packages/report`, not `apps/worker` — the worker only calls `buildReportDocx(...)` and uploads the bytes.
+- 2026-09-29 — **`getReportDownloadUrlsAction` and `listTestEvidenceAction` (P6) share the same "read, not `action()`" shape**: a lab-membership check done by hand, then presigned URLs issued only after it passes (§9). Neither writes anything an audit trail needs to record (a user viewing their own evaluation's downloads), consistent with the precedent that established this pattern.
+- 2026-09-29 — **The print route's `?doc=certificate` variant is a query parameter on the one `print/reports/[versionId]` route, not a second route.** §3.3's repo layout names exactly one print path (`(print)/print/reports/[versionId]/`); a certificate is a second *document* rendered from the identical version + token, not a different resource, so it stays one route with a switch rather than inventing `print/certificates/[versionId]` that the layout comment never mentions.
+
+### Deviations from implementation.md
+- 2026-09-29 — **No `apps/web/e2e/report.spec.ts`.** §10 P8's acceptance criteria are instead verified by: a genuine, non-mocked run of the full worker pipeline (`report.render → report.sign → docx.build`) against the real dev stack, `pdfsig`/`pdftotext`/`pdftoppm` inspection of the resulting PDF, `python3 zipfile` inspection of the resulting DOCX, 25 new unit/integration tests, and an authenticated `curl` render of the live print route. `claude-in-chrome` is unavailable in this environment — the same deviation recorded in every phase since P4. What a real browser would additionally cover: the Report view's live iframe actually painting, the "Check a PDF" dropzone's real drag-and-drop interaction, and keyboard operability of the revoke/share dialogs. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **DOCX→PDF headless LibreOffice conversion (§10 P8's own acceptance criterion) is not run — `soffice` is not installed in this environment.** Verified instead that the DOCX is a well-formed OOXML package (valid `[Content_Types].xml`/`_rels/.rels`/`word/document.xml`, confirmed via both a manual `python3 zipfile` inspection of a genuinely-built file and an automated `jszip`-based test) containing every expected string in real Word tables — not a claim that it *would* survive a LibreOffice round-trip, which remains unverified. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **No production-grade rate limiting on `/verify/[certNo]`.** §9 names it alongside login and sensor ingest; only login has Better Auth's own limiter. An in-memory, single-process limiter would not survive the multi-instance deployment §10 P11 is clearly written for, and P11 already owns "rate limiting" as its own dedicated task. Logged as `docs/QUESTIONS.md` #38 rather than built half-way. (§ update: n)
+- 2026-09-29 — **Amendments (`AMENDING` → a 2.0 report version) are not exercised end to end.** `workflow.ts`'s `ISSUED --> AMENDING` and `AMENDING --> PENDING_T1` edges exist and are covered by `workflow.test.ts`'s pure transition-table tests, and `submitForReviewAction` already computes `nextVersion(..., 'major')` when the evaluation was `AMENDING` — but nothing in the UI currently opens an amendment (no button reopens an `ISSUED` evaluation back into `AMENDING`). §10 P8's task list does not ask for this explicitly; it is implied by the state machine P7 already built. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **The certificate template is a best-effort default, not the real DoCA-prescribed format** (§8.1 explicitly anticipates this and asks for the question to be logged — `docs/QUESTIONS.md` #36), and it is not yet lab-configurable despite §8.1 calling for a "configurable template." (§ update: n)
+
+### Follow-ups
+- Write `apps/web/e2e/report.spec.ts` once browser automation is available: live preview rendering, "Check a PDF" drag-and-drop, revoke/share dialog keyboard operability.
+- Install LibreOffice in a CI/dev environment that has it and run the real `soffice --headless --convert-to pdf` smoke test §10 P8 asks for.
+- Build a UI entry point for amendments (`ISSUED → AMENDING`), even though the underlying transitions and version-numbering already work.
+- Confirm `docs/QUESTIONS.md` #35 (QR hash: model vs PDF), #36 (certificate template), #37 (revoke reason category), #39 (attachment thumbnails) with the human owner; #38 (verify-page rate limiting) is P11's to pick up.
+- `resolveFromRoot()` (`packages/config`) is currently only used by `report-sign.ts`; sweep other file-path env values (none exist yet beyond `SIGNING_P12_PATH`) if a future phase adds one, so the same `cwd`-mismatch class of bug can't reappear silently.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8
