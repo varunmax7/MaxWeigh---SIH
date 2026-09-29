@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { getActiveLabId } from '@/server/active-lab';
 import { getLabMemberships } from '@/server/queries/lab-memberships';
 import { getLedgerStatus } from '@/server/queries/ledger-status';
-import { can } from '@/server/rbac';
+import { can, type Permission } from '@/server/rbac';
 import type { AppSession } from '@/server/session';
 import { AppShellClient } from './AppShellClient';
 import { PRIMARY_NAV, SECONDARY_NAV } from './nav-config';
@@ -22,12 +22,13 @@ export async function AppShell({
   const [labs, ledger] = await Promise.all([getLabMemberships(session.user.id), getLedgerStatus()]);
   const activeLabId = (await getActiveLabId()) ?? labs[0]?.id ?? '';
 
-  const primaryItems = PRIMARY_NAV.filter(
-    (item) => !item.permission || can(session.user.role, item.permission),
-  );
-  const secondaryItems = SECONDARY_NAV.filter(
-    (item) => !item.permission || can(session.user.role, item.permission),
-  );
+  const hasNavPermission = (item: { permission?: Permission | Permission[] }) => {
+    if (!item.permission) return true;
+    const required = Array.isArray(item.permission) ? item.permission : [item.permission];
+    return required.some((p) => can(session.user.role, p));
+  };
+  const primaryItems = PRIMARY_NAV.filter(hasNavPermission);
+  const secondaryItems = SECONDARY_NAV.filter(hasNavPermission);
 
   return (
     <AppShellClient

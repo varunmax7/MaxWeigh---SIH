@@ -24,8 +24,8 @@ export interface NavItem {
   label: string;
   href: string;
   icon: NavIconName;
-  /** Omitted = visible to every signed-in role. */
-  permission?: Permission;
+  /** Omitted = visible to every signed-in role. An array is "any of" — e.g. Rule packs needs either `rulepack.draft` (ADMIN/CHIEF_METROLOGY_OFFICER) or `rulepack.publish` (ADMIN/CONTROLLER, to confirm a publish). */
+  permission?: Permission | Permission[];
 }
 
 /**
@@ -61,7 +61,7 @@ export const PRIMARY_NAV: NavItem[] = [
     label: 'Rule packs',
     href: ROUTES.rules,
     icon: 'rules',
-    permission: 'rulepack.draft',
+    permission: ['rulepack.draft', 'rulepack.publish'],
   },
 ];
 

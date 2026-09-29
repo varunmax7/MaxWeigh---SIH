@@ -1,4 +1,5 @@
 import {
+  Archive,
   BadgeCheck,
   Ban,
   CircleDashed,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/** implementation.md §6.3's evaluation states plus §5's `evaluation_tests.status`. */
+/** implementation.md §6.3's evaluation states, §5's `evaluation_tests.status`, plus `rulepacks.status` (P10). */
 export type StatusChipValue =
   | 'DRAFT'
   | 'PLANNED'
@@ -27,7 +28,9 @@ export type StatusChipValue =
   | 'PENDING'
   | 'IN_PROGRESS'
   | 'COMPLETED'
-  | 'REOPENED';
+  | 'REOPENED'
+  | 'PUBLISHED'
+  | 'RETIRED';
 
 const LABELS: Record<StatusChipValue, string> = {
   DRAFT: 'Draft',
@@ -41,6 +44,8 @@ const LABELS: Record<StatusChipValue, string> = {
   REVOKED: 'Revoked',
   AMENDING: 'Amending',
   CANCELLED: 'Cancelled',
+  PUBLISHED: 'Published',
+  RETIRED: 'Retired',
   PENDING: 'Pending',
   IN_PROGRESS: 'In progress',
   COMPLETED: 'Completed',
@@ -63,6 +68,8 @@ const ICONS: Record<StatusChipValue, LucideIcon> = {
   IN_PROGRESS: FlaskConical,
   COMPLETED: BadgeCheck,
   REOPENED: RotateCcw,
+  PUBLISHED: BadgeCheck,
+  RETIRED: Archive,
 };
 
 /**
@@ -86,6 +93,8 @@ const TONE: Record<StatusChipValue, string> = {
   IN_PROGRESS: 'text-active bg-active-bg',
   COMPLETED: 'text-pass bg-pass-bg',
   REOPENED: 'text-pending bg-pending-bg',
+  PUBLISHED: 'text-pass bg-pass-bg',
+  RETIRED: 'text-muted-foreground bg-muted',
 };
 
 /** A workflow status = icon + text + colour, never colour alone (implementation.md §7.7). */

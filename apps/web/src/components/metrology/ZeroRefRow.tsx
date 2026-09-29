@@ -42,6 +42,7 @@ export function ZeroRefRow({
         </Label>
         <Input
           id="zero-ref-I"
+          data-serial-target="true"
           value={value.I}
           onChange={(e) => onChange({ ...value, I: e.target.value })}
           disabled={disabled}

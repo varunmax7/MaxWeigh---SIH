@@ -11,8 +11,8 @@
 | P6 Workspace | ☑ | 2026-09-28 | 2026-09-29 | command output below |
 | P7 Workflow | ☑ | 2026-09-29 | 2026-09-29 | command output below |
 | P8 Reports | ☑ | 2026-09-29 | 2026-09-29 | sample PDF/DOCX paths, command output below |
-| P9 Insights | ☐ | | | bench output |
-| P10 Integrations | ☐ | | | |
+| P9 Insights | ☑ | 2026-09-29 | 2026-09-29 | bench output below |
+| P10 Integrations | ☑ | 2026-09-29 | 2026-09-29 | command output below |
 | P11 Hardening | ☐ | | | CI run link |
 | P12 Release | ☐ | | | |
 
@@ -825,6 +825,102 @@ PASS: p95 within the 300 ms budget.   # 300 ms budget, actual ~30x headroom
 - `docs/QUESTIONS.md` #18 (cross-entity search) is now closed by this phase's trigram approach — no further action needed unless a future phase wants true full-text ranking (stemming, phrase queries) over the current substring-similarity ranking.
 - Consider whether the base `main()` seed users (P2) should also get a documented "these stay single-lab, on purpose, for `lab-access.test.ts`" comment near their definition in `packages/db/src/seed.ts` — this phase found the constraint only by breaking it once.
 - `setActiveLabAction`'s fix (see Decisions) closes the immediate gap; no other cookie-trusting read was found to have the same issue. A regression test now pins it (`components/shell/actions.test.ts`, 3 cases: member lab writes the cookie, non-member lab silently no-ops, no session silently no-ops).
+
+## P10 — Sensors, serial input and rule-pack admin
+
+- [x] `POST /api/v1/env/readings` (device-key bearer auth, hashed the same way P4's `registerEnvSensorAction` hashes a key to issue one; DB-backed rate limit — see Decisions), `GET /api/v1/env/stream?lab=` (SSE, session-authenticated, polls `env_readings` every 2 s and only emits when the latest row actually changes, with a heartbeat otherwise), sensor status: live (≤ 30 s) / stale (30 s–2 min) / offline (> 2 min) — `apps/web/src/lib/sensor-status.ts` (docs/QUESTIONS.md #44).
+- [x] `scripts/sim-env.ts` (`pnpm sim:env`): self-registers a sensor on first run (cached device key at `tmp/sim-env-<lab>.json`), posts real HTTP requests against a running dev server every 10 s with a slow random walk around 22 °C/54 % RH/1013 hPa.
+- [x] Workspace: `useEnvStream`/`SensorStatusBadge` in `ExecutionHeader`, `EnvConditions`' existing (P6-reserved) `liveReading` prop wired from the stream through `FormDispatcher` into all seven forms that render it; a manual-entry fallback is simply what already happens when no live reading exists (no separate banner component needed — the sensor-status text itself says "enter conditions manually"). Stability check across a test's stored readings — `apps/web/src/lib/env-stability.ts` — computed and available for the Inspector panel; informational only (§4.6's own `TEMP_STATIC` test is a distinct, unimplemented evaluator, docs/QUESTIONS.md #12).
+- [x] Web Serial "Read from instrument" (`apps/web/src/lib/serial/`): `SerialConnection` (connect/read/close, line-buffered), two built-in parser profiles + a custom-regex profile (docs/QUESTIONS.md #43), mock mode (typed value + "Simulate stable reading"), `insertIntoFocusedInput` (native-setter technique, targets any `data-serial-target="true"` input — every grid/zero-ref/single-value measurement field across all seven test forms already carries it). `scripts/sim-serial.ts` emits the same wire formats for a real Web Serial end-to-end test via a `socat` virtual port pair, or just to inspect the format. Documented in `docs/API.md` (new file).
+- [x] Rule packs (§7.5): list (`/rules`), readable detail (`/rules/[id]/[version]`, classification/MPE/test-catalogue/limits tables), clone-to-draft (minor version bump, resets `verification` — a clone is unverified content even if its source wasn't), JSON editor + a curated limits form view, diff vs published (`diffRulepackContent`, leaf-level with dotted paths, arrays compared whole), two-person publish (SoD-3: ADMIN initiates, a different CONTROLLER confirms — enforced by role *and* `assertSod3`, not permission alone; editing a draft is refused while a publish is pending, so a confirmer can never approve content the initiator didn't see), sandbox "re-evaluate under draft" comparison (`compareRulepackDraftAction`, by evaluation ref no., read-only — docs/QUESTIONS.md #45).
+- [x] Standards library (`/regulatory`): paraphrased one-paragraph summaries, no copied normative text, OIML root-domain link only (docs/QUESTIONS.md #46).
+- [x] Seeded a `PUBLISHED` `rulepacks` row mirroring the compiled `oiml-r76-1-2006@1.0.0` pack (`packages/db/src/seed.ts`'s `seedPublishedRulepack()`) — the table has existed since P2 but nothing populated it before now; the admin screens need a real published pack to clone from.
+
+### Acceptance evidence
+
+```
+$ pnpm typecheck && pnpm lint && pnpm test
+Tasks: 14 successful (typecheck), 8 successful (build, incl. a real
+`next build` — see Decisions), 0 errors (lint, Biome — 441 files), 14
+successful (test — 364 tests total, this phase's own 42 new: env-ingest.test.ts
+(8), sensor-status.test.ts (4), env-stability.test.ts (3), rulepacks.test.ts
+(12, real DB), serial/parsers.test.ts (11), rulepack-diff.test.ts (4)).
+
+$ pnpm db:seed
+...
+Seeded rule pack → oiml-r76-1-2006@1.0.0
+Seed complete.
+# Re-run: "Rule pack already seeded → oiml-r76-1-2006@1.0.0" (idempotent).
+
+$ pnpm sim:env --interval-ms 3000   # against the real running dev server
+Registered simulator sensor <uuid> for RRSL-BLR.
+Posting to http://localhost:3000/api/v1/env/readings every 3000ms.
+Posted 22.3°C 54% RH 1013.2 hPa
+# psql env_readings: real rows, correct sensor_id/lab_id/temp_c/rh_pct/ts.
+
+$ curl -X POST .../api/v1/env/readings -H "authorization: Bearer <key>" ...
+# A fresh device key's first post: 200 (accepted). An immediate second post
+# from the same sensor: 429 {"ok":false,"code":"RULE","issue":"rate limited"}.
+# An unrecognized key: 401.
+
+$ curl -N .../api/v1/env/stream?lab=<id>  (with a real session cookie, while
+  sim:env was posting)
+event: reading
+data: {"sensorId":"...","hubCode":"SIM-RRSL-BLR","tempC":22.26,...}
+event: reading
+data: {"sensorId":"...","hubCode":"SIM-RRSL-BLR","tempC":22.22,...}
+# Real SSE events, real DB-sourced readings, confirmed end to end.
+
+$ pnpm tsx scripts/sim-serial.ts --profile and-style --interval-ms 200
+ST,+00000.00,g
+US,+00357.43,g
+ST,+00357.00,g
+$ pnpm tsx scripts/sim-serial.ts --profile generic-csv --interval-ms 200
+-0.059,g,unstable
+0.000,g,stable
+
+# apps/web/src/server/actions/rulepacks.test.ts (11 tests, real DB, real
+# engine, real action() wrapper — same rig as review.test.ts): clone bumps
+# 1.0.0 → 1.1.0 → 1.2.0 (collision-avoiding); edits validate through
+# loadRulepack and are refused for a non-draft or a draft with a pending
+# publish; the full initiate(ADMIN)→confirm(CONTROLLER) flow retires the
+# previously-published version and is refused for the wrong role at each
+# step; the sandbox comparison reports no change against an identical
+# draft and a real FAIL when class III's MPE bands are tightened, while
+# the stored evaluation's own verdict is provably untouched by either call.
+
+# Manual verification of the real running app (authenticated curl, since
+# claude-in-chrome remains disabled in this environment — unchanged since
+# P4, see Deviations): GET /regulatory → 200, real paraphrased content.
+# GET /evaluations/<id>/execute/WEIGHING → 200, "No environment sensor
+# registered" (correct — no sensor exists for the lab at that moment) and
+# the collapsed "Read from instrument" control both server-rendered.
+# /rules and /rules/[id]/[version] could not be curl-verified end to end —
+# every role holding rulepack.draft/rulepack.publish is TOTP-mandatory
+# (`(app)/layout.tsx`), and completing real TOTP enrollment for a seeded
+# user was out of scope for a manual smoke check; verified instead by the
+# successful `next build` (both routes compile and are listed in its
+# route table) plus the 11 real-DB action tests above, which exercise the
+# exact server-side logic those pages call.
+```
+
+### Decisions
+- 2026-09-29 — **Discovered and worked around a genuine Next 16.3.6 Turbopack production-build bug** (docs/QUESTIONS.md #42): a client `.ts` module referencing more than one distinct relative (`./…`) import target — even a type-only one — fails to resolve under `next build` (fine under `next dev` and `tsc`), with a misleading "Module not found" pointed at the second-and-later targets. Root-caused with a minimal two-trivial-file reproduction before concluding it wasn't specific to the serial code. Fixed by having the two new plain-`.ts` client modules (`useSerialReader.ts`, `serial-connection.ts`) import their local siblings via the `@/…` path alias instead of `./…`, proven safe because the rest of the app already does this almost everywhere. **This is the first phase to actually run `next build` as part of its own verification** — P0–P9 relied on `next dev` + `tsc` + tests, which is exactly why this class of bug went undetected for nine phases; worth adding a real `next build` to CI (P11/P12 scope).
+- 2026-09-29 — **Sensor-ingest rate limiting is DB-backed, not an in-memory token bucket**: a reading is rejected if the same sensor already has one within `MIN_INGEST_INTERVAL_MS` (2 s), checked against `env_readings` itself. This survives a multi-instance deployment for free and needs no new infrastructure, at the honest cost of only throttling this one endpoint's write rate per device key — a general per-IP abuse limiter stays P11 scope (docs/QUESTIONS.md #38, updated).
+- 2026-09-29 — **Editing a draft rule pack is refused while a publish is pending** (`updateRulepackDraftAction` checks `publishedBy`, not just `status`) — found while writing the UI, not the original action: without this, the CONTROLLER who confirms could be approving content the ADMIN who initiated never actually saw, which would make SoD-3 a signature ceremony rather than a real two-person review of the *same* content. Pinned by a regression test (`rulepacks.test.ts`: initiate → edit attempt refused with CONFLICT → cancel → edit succeeds).
+- 2026-09-29 — **The rule-pack admin screens and the sandbox comparison read/write the `rulepacks` DB table exclusively; the engine/evaluation code paths (evaluation creation, `saveObservationsAction`, live classification, report snapshots) are completely unchanged and still import the compiled `OIML_R76_1_2006` constant from `@tula/rulepacks`.** This is the load-bearing guarantee behind §4.11's "publishing a new rule pack never changes an existing evaluation" — it holds by construction (there is no code path from "publish" to "re-run an evaluation"), not just by testing, though the sandbox-comparison test also confirms it empirically (a stored verdict is bit-for-bit unchanged after both a no-op and a verdict-changing comparison run against it).
+- 2026-09-29 — **`insertIntoFocusedInput` is one global utility, not per-form wiring** — every measurement input across all seven test forms (`ObservationGrid`'s I-cell, `ZeroRefRow`, and each single-value form's own input) carries `data-serial-target="true"`; "Read from instrument" targets whichever one currently has focus via the native-input-setter technique. This covers every form with one small attribute each, rather than threading a callback prop through seven different components — chosen once it was clear the forms don't share a common input component uniformly (`ObservationGrid`/`ZeroRefRow` are shared, but `ZeroReturnForm`/`DiscriminationForm`/`RepeatabilityForm`/`CreepForm` each roll their own).
+- 2026-09-29 — **`NavItem.permission` now accepts an array (any-of)**, and Rule packs' nav entry is gated on `['rulepack.draft', 'rulepack.publish']` instead of `rulepack.draft` alone — found while wiring the publish-confirm UI: CONTROLLER holds only `rulepack.publish` and would otherwise never see the nav item it needs to confirm a publish from. `AppShell.tsx`'s filter updated to match; no existing nav item's gating changed.
+
+### Deviations from implementation.md
+- 2026-09-29 — **§10 P10 names no browser-based verification, and `claude-in-chrome` remains disabled in this environment's settings** — unchanged since P4, re-confirmed this phase (attempted a `navigate` call; refused with "Claude in Chrome is turned off in your settings"). Verified instead via `next build`'s route compilation, real curl round trips against the sensor/SSE endpoints and the Standards library/workspace pages, and 11 new real-DB action tests for the rule-pack admin flow. The Rule packs pages specifically (`/rules`, `/rules/[id]/[version]`) could not be curl-verified end to end because every role that can see them is TOTP-mandatory — see the Acceptance evidence note. (§ update: n, tracked as a follow-up)
+- 2026-09-29 — **No `apps/web/e2e/sensors.spec.ts` or `rulepacks.spec.ts`** — same root cause as above; `pnpm --filter web test:e2e` needs a browser binary this environment doesn't have configured either.
+
+### Follow-ups
+- Write `apps/web/e2e/sensors.spec.ts` / `rulepacks.spec.ts` once browser automation is available: the sensor-offline banner's real 2-minute timing, the serial mock-mode insert-into-focused-field flow, and the rule-pack publish confirmation dialog end to end.
+- Add a real `next build` to whatever CI this project ends up with (P11/P12) — this phase's Turbopack bug (docs/QUESTIONS.md #42) would have gone unnoticed by `tsc`/`next dev`/tests alone.
+- `docs/QUESTIONS.md` #43 (Web Serial protocol), #44 (sensor status thresholds / rate-limit interval), #45 (sandbox comparison baseline), #46 (regulatory page links) all need a human owner's confirmation before this phase's conservative choices should be considered final.
+- Report the Turbopack bug (docs/QUESTIONS.md #42) upstream once a minimal reproduction package is worth publishing.
 
 ## OIML constants verification (§4.12)
 - [ ] Table 3 classification rows (§4.3), including whether Min uses `e` or `d` for auxiliary indication — see `docs/QUESTIONS.md` #8

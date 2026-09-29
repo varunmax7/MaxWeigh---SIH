@@ -54,6 +54,7 @@ export function DiscriminationForm({
   readOnly,
   onStatusChange,
   onSaveNowReady,
+  liveReading,
 }: {
   testId: string;
   spec: InstrumentMetrology;
@@ -65,6 +66,7 @@ export function DiscriminationForm({
   readOnly: boolean;
   onStatusChange?: (status: AutosaveStatus) => void;
   onSaveNowReady?: (saveNow: () => Promise<void>) => void;
+  liveReading?: { tempC: number; rhPct: number; sensorId: string } | null;
 }) {
   const exec = useTestExecution<DiscriminationDraft>({
     testId,
@@ -135,7 +137,8 @@ export function DiscriminationForm({
                   <TableCell className="tabular">{row.L}</TableCell>
                   <TableCell>
                     <Input
-                      aria-label={`Indication before, load ${row.L}`}
+                      aria-label={`Indication before, load `}
+                      data-serial-target="true"
                       value={row.iBefore ?? ''}
                       onChange={(e) => updateRow(row.rowId, { iBefore: e.target.value })}
                       disabled={readOnly}
@@ -145,7 +148,8 @@ export function DiscriminationForm({
                   </TableCell>
                   <TableCell>
                     <Input
-                      aria-label={`Indication after, load ${row.L}`}
+                      aria-label={`Indication after, load `}
+                      data-serial-target="true"
                       value={row.iAfter ?? ''}
                       onChange={(e) => updateRow(row.rowId, { iAfter: e.target.value })}
                       disabled={readOnly}
@@ -173,12 +177,14 @@ export function DiscriminationForm({
           label="Start conditions"
           value={exec.envStart}
           onChange={exec.setEnvStart}
+          liveReading={liveReading}
           disabled={readOnly}
         />
         <EnvConditions
           label="End conditions"
           value={exec.envEnd}
           onChange={exec.setEnvEnd}
+          liveReading={liveReading}
           disabled={readOnly}
         />
       </div>

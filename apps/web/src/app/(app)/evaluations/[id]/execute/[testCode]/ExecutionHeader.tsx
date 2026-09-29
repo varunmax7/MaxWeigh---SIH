@@ -6,6 +6,8 @@ import { Save } from 'lucide-react';
 import type { AutosaveStatus } from '@/components/forms/useAutosave';
 import { SpecLine } from '@/components/metrology';
 import { Button } from '@/components/ui/button';
+import { SensorStatusBadge } from '@/components/workspace/SensorStatusBadge';
+import type { EnvStreamState } from '@/components/workspace/useEnvStream';
 
 function statusText(status: AutosaveStatus): string {
   switch (status.kind) {
@@ -40,6 +42,7 @@ export function ExecutionHeader({
   status,
   onSaveNow,
   testCode,
+  envStream,
 }: {
   refNo: string;
   modelLabel: string;
@@ -52,6 +55,7 @@ export function ExecutionHeader({
   status: AutosaveStatus;
   onSaveNow: () => void;
   testCode: string;
+  envStream: EnvStreamState;
 }) {
   const testTitle = OIML_R76_1_2006.tests.find((t) => t.code === testCode)?.title ?? testCode;
   return (
@@ -73,14 +77,17 @@ export function ExecutionHeader({
           smallUnit="g"
         />
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <p aria-live="polite" className="tabular text-xs text-muted-foreground">
-          {statusText(status)}
-        </p>
-        <Button type="button" variant="outline" size="sm" onClick={onSaveNow}>
-          <Save className="size-4" />
-          Save draft
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SensorStatusBadge status={envStream.status} reading={envStream.reading} />
+        <div className="flex items-center gap-3">
+          <p aria-live="polite" className="tabular text-xs text-muted-foreground">
+            {statusText(status)}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={onSaveNow}>
+            <Save className="size-4" />
+            Save draft
+          </Button>
+        </div>
       </div>
     </div>
   );

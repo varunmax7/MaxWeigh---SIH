@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { WeightSetOption } from '@/components/forms/StandardsPicker';
 import type { AutosaveStatus } from '@/components/forms/useAutosave';
 import { type BatteryTest, TestBatteryList } from '@/components/metrology';
+import { SerialReadPanel } from '@/components/workspace/SerialReadPanel';
+import { useEnvStream } from '@/components/workspace/useEnvStream';
 import { startTestAction } from '@/server/actions/execution';
 import { ExecutionHeader } from './ExecutionHeader';
 import { FormDispatcher } from './FormDispatcher';
@@ -34,6 +36,7 @@ interface TestRow {
  */
 export function ExecutionWorkspace({
   evaluationId,
+  labId,
   refNo,
   modelLabel,
   spec,
@@ -44,6 +47,7 @@ export function ExecutionWorkspace({
   readOnly,
 }: {
   evaluationId: string;
+  labId: string;
   refNo: string;
   modelLabel: string;
   spec: InstrumentMetrology;
@@ -54,6 +58,7 @@ export function ExecutionWorkspace({
   readOnly: boolean;
 }) {
   const router = useRouter();
+  const envStream = useEnvStream(labId);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // Mirrored from the active form's own `useTestExecution` via
   // `onStatusChange`/`onSaveNowReady` — the header renders status and
@@ -116,7 +121,10 @@ export function ExecutionWorkspace({
         status={headerStatus}
         onSaveNow={() => void saveNowRef.current()}
         testCode={test.testCode}
+        envStream={envStream}
       />
+
+      {readOnly ? null : <SerialReadPanel />}
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
         <TestBatteryList
@@ -134,6 +142,15 @@ export function ExecutionWorkspace({
           onSaveNowReady={(fn) => {
             saveNowRef.current = fn;
           }}
+          liveReading={
+            envStream.status === 'live' && envStream.reading
+              ? {
+                  tempC: envStream.reading.tempC,
+                  rhPct: envStream.reading.rhPct,
+                  sensorId: envStream.reading.sensorId,
+                }
+              : null
+          }
         />
       </div>
 

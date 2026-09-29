@@ -57,6 +57,7 @@ export function FormDispatcher({
   readOnly,
   onStatusChange,
   onSaveNowReady,
+  liveReading,
 }: {
   test: TestRow;
   spec: InstrumentMetrology;
@@ -64,6 +65,8 @@ export function FormDispatcher({
   readOnly: boolean;
   onStatusChange?: (status: AutosaveStatus) => void;
   onSaveNowReady?: (saveNow: () => Promise<void>) => void;
+  /** A live env-sensor reading (implementation.md §10 P10) — passed through to whichever form renders `EnvConditions`. */
+  liveReading?: { tempC: number; rhPct: number; sensorId: string } | null;
 }) {
   const common = {
     testId: test.id,
@@ -73,6 +76,7 @@ export function FormDispatcher({
     readOnly,
     onStatusChange,
     onSaveNowReady,
+    liveReading,
   };
   const initialEnvStart = (test.envStart as EnvConditionsValue | null) ?? null;
   const initialEnvEnd = (test.envEnd as EnvConditionsValue | null) ?? null;

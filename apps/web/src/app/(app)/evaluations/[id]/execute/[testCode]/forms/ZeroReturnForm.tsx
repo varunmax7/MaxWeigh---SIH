@@ -33,6 +33,7 @@ export function ZeroReturnForm({
   readOnly,
   onStatusChange,
   onSaveNowReady,
+  liveReading,
 }: {
   testId: string;
   spec: InstrumentMetrology;
@@ -44,6 +45,7 @@ export function ZeroReturnForm({
   readOnly: boolean;
   onStatusChange?: (status: AutosaveStatus) => void;
   onSaveNowReady?: (saveNow: () => Promise<void>) => void;
+  liveReading?: { tempC: number; rhPct: number; sensorId: string } | null;
 }) {
   const exec = useTestExecution<ZeroReturnDraft>({
     testId,
@@ -88,6 +90,7 @@ export function ZeroReturnForm({
             </Label>
             <Input
               id="i0-before"
+              data-serial-target="true"
               value={exec.draft.i0Before}
               onChange={(e) => exec.updateDraft({ ...exec.draft, i0Before: e.target.value })}
               disabled={readOnly}
@@ -101,6 +104,7 @@ export function ZeroReturnForm({
             </Label>
             <Input
               id="i0-after"
+              data-serial-target="true"
               value={exec.draft.i0After}
               onChange={(e) => exec.updateDraft({ ...exec.draft, i0After: e.target.value })}
               disabled={readOnly}
@@ -117,12 +121,14 @@ export function ZeroReturnForm({
           label="Start conditions"
           value={exec.envStart}
           onChange={exec.setEnvStart}
+          liveReading={liveReading}
           disabled={readOnly}
         />
         <EnvConditions
           label="End conditions"
           value={exec.envEnd}
           onChange={exec.setEnvEnd}
+          liveReading={liveReading}
           disabled={readOnly}
         />
       </div>

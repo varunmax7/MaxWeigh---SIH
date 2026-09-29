@@ -56,6 +56,7 @@ export default async function ExecuteTestPage({
   return (
     <ExecutionWorkspace
       evaluationId={evaluationId}
+      labId={context.evaluation.labId}
       refNo={context.evaluation.refNo}
       modelLabel={`${context.manufacturerName} ${context.modelName}`}
       spec={specResult.data}

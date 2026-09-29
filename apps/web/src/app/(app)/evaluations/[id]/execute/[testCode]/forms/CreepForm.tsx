@@ -56,6 +56,7 @@ export function CreepForm({
   readOnly,
   onStatusChange,
   onSaveNowReady,
+  liveReading,
 }: {
   testId: string;
   spec: InstrumentMetrology;
@@ -68,6 +69,7 @@ export function CreepForm({
   readOnly: boolean;
   onStatusChange?: (status: AutosaveStatus) => void;
   onSaveNowReady?: (saveNow: () => Promise<void>) => void;
+  liveReading?: { tempC: number; rhPct: number; sensorId: string } | null;
 }) {
   const exec = useTestExecution<CreepDraft>({
     testId,
@@ -126,6 +128,7 @@ export function CreepForm({
                 </Label>
                 <Input
                   id={`creep-${reading.tMin}`}
+                  data-serial-target="true"
                   value={reading.i ?? ''}
                   onChange={(e) => updateReading(reading.tMin, e.target.value)}
                   disabled={readOnly}
@@ -148,12 +151,14 @@ export function CreepForm({
           label="Start conditions"
           value={exec.envStart}
           onChange={exec.setEnvStart}
+          liveReading={liveReading}
           disabled={readOnly}
         />
         <EnvConditions
           label="End conditions"
           value={exec.envEnd}
           onChange={exec.setEnvEnd}
+          liveReading={liveReading}
           disabled={readOnly}
         />
       </div>

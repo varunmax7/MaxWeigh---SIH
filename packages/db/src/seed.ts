@@ -9,12 +9,14 @@
  * synthetic historical evaluations/reports for performance-testing the
  * Reports repository, dashboard and search — see `seed-volume.ts`.
  */
+import { createHash } from 'node:crypto';
 import { env, loadRootEnv } from '@tula/config';
+import { OIML_R76_1_2006 } from '@tula/rulepacks';
 import { betterAuth } from 'better-auth';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { buildAuthOptions } from './auth-config.js';
 import { createDb } from './client.js';
-import { labMembers, labs, ROLES, type Role, user } from './schema/index.js';
+import { labMembers, labs, ROLES, type Role, rulepacks, user } from './schema/index.js';
 import { seedVolume } from './seed-volume.js';
 
 loadRootEnv();
@@ -57,6 +59,57 @@ function emailFor(role: Role): string {
   return `${role.toLowerCase().replaceAll('_', '.')}@tula.test`;
 }
 
+/**
+ * Seeds a `PUBLISHED` `rulepacks` row mirroring the compiled
+ * `oiml-r76-1-2006@1.0.0` pack (implementation.md §10 P10) — the table
+ * exists in the schema since P2 but nothing has ever populated it: the
+ * engine/evaluation code paths always import `OIML_R76_1_2006` from
+ * `@tula/rulepacks` directly, never this table (§4.11: "publishing a new
+ * rule pack never changes an existing evaluation"). This row exists only
+ * so the rule-pack admin screens (list/detail/clone/publish) have the real
+ * currently-in-force pack to start from, already marked as its own SoD-3
+ * initiator/confirmer pair so it reads as genuinely published, not a stub.
+ */
+async function seedPublishedRulepack(): Promise<void> {
+  const [existing] = await db
+    .select({ id: rulepacks.id })
+    .from(rulepacks)
+    .where(
+      and(eq(rulepacks.id, OIML_R76_1_2006.id), eq(rulepacks.version, OIML_R76_1_2006.version)),
+    );
+  if (existing) {
+    console.info(`Rule pack already seeded → ${OIML_R76_1_2006.id}@${OIML_R76_1_2006.version}`);
+    return;
+  }
+
+  const [admin] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, emailFor('ADMIN')));
+  const [controller] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, emailFor('CONTROLLER')));
+  if (!admin || !controller) {
+    throw new Error('ADMIN/CONTROLLER seed users must exist before seeding the rule pack');
+  }
+
+  const content = OIML_R76_1_2006 as unknown as Record<string, unknown>;
+  await db.insert(rulepacks).values({
+    id: OIML_R76_1_2006.id,
+    version: OIML_R76_1_2006.version,
+    status: 'PUBLISHED',
+    title: OIML_R76_1_2006.title,
+    content,
+    contentSha256: createHash('sha256').update(JSON.stringify(content)).digest('hex'),
+    createdBy: admin.id,
+    publishedBy: admin.id,
+    confirmedBy: controller.id,
+    publishedAt: new Date(),
+  });
+  console.info(`Seeded rule pack → ${OIML_R76_1_2006.id}@${OIML_R76_1_2006.version}`);
+}
+
 async function main() {
   const insertedLabs = await db
     .insert(labs)
@@ -95,6 +148,8 @@ async function main() {
 
     await db.insert(labMembers).values({ userId, labId: bengaluru.id }).onConflictDoNothing();
   }
+
+  await seedPublishedRulepack();
 
   console.info('Seed complete.');
 

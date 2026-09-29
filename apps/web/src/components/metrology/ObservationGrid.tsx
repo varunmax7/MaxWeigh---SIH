@@ -69,6 +69,7 @@ function GridDataRow({
           }}
           id={`${idPrefix}-I-${row.rowId}`}
           aria-label={`Indication for load ${row.label}`}
+          data-serial-target="true"
           value={row.I ?? ''}
           onChange={(e) => onChangeI(row.rowId, e.target.value)}
           onKeyDown={(e) => {

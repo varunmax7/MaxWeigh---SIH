@@ -69,6 +69,7 @@ export function WeighingForm({
   readOnly,
   onStatusChange,
   onSaveNowReady,
+  liveReading,
 }: {
   testId: string;
   spec: InstrumentMetrology;
@@ -82,6 +83,7 @@ export function WeighingForm({
   readOnly: boolean;
   onStatusChange?: (status: AutosaveStatus) => void;
   onSaveNowReady?: (saveNow: () => Promise<void>) => void;
+  liveReading?: { tempC: number; rhPct: number; sensorId: string } | null;
 }) {
   const exec = useTestExecution<WeighingDraft>({
     testId,
@@ -216,12 +218,14 @@ export function WeighingForm({
           label="Start conditions"
           value={exec.envStart}
           onChange={exec.setEnvStart}
+          liveReading={liveReading}
           disabled={readOnly}
         />
         <EnvConditions
           label="End conditions"
           value={exec.envEnd}
           onChange={exec.setEnvEnd}
+          liveReading={liveReading}
           disabled={readOnly}
         />
         <StandardsPicker

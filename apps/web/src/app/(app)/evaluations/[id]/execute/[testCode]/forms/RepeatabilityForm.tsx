@@ -44,6 +44,7 @@ export function RepeatabilityForm({
   readOnly,
   onStatusChange,
   onSaveNowReady,
+  liveReading,
 }: {
   testId: string;
   spec: InstrumentMetrology;
@@ -55,6 +56,7 @@ export function RepeatabilityForm({
   readOnly: boolean;
   onStatusChange?: (status: AutosaveStatus) => void;
   onSaveNowReady?: (saveNow: () => Promise<void>) => void;
+  liveReading?: { tempC: number; rhPct: number; sensorId: string } | null;
 }) {
   const exec = useTestExecution<RepeatabilityDraft>({
     testId,
@@ -132,6 +134,7 @@ export function RepeatabilityForm({
                     </label>
                     <Input
                       id={`${series.L}-${reading.rowId}`}
+                      data-serial-target="true"
                       value={reading.I ?? ''}
                       onChange={(e) => updateReading(seriesIndex, reading.rowId, e.target.value)}
                       disabled={readOnly}
@@ -148,12 +151,14 @@ export function RepeatabilityForm({
           label="Start conditions"
           value={exec.envStart}
           onChange={exec.setEnvStart}
+          liveReading={liveReading}
           disabled={readOnly}
         />
         <EnvConditions
           label="End conditions"
           value={exec.envEnd}
           onChange={exec.setEnvEnd}
+          liveReading={liveReading}
           disabled={readOnly}
         />
       </div>

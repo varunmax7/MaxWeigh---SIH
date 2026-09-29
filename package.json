@@ -26,7 +26,9 @@
     "infra:logs": "docker compose -f infra/docker-compose.yml --env-file .env logs -f",
     "check:no-float-mass": "tsx scripts/check-no-float-mass.ts",
     "gen:methodology": "tsx scripts/gen-methodology.ts",
-    "bench:search": "tsx scripts/bench-search.ts"
+    "bench:search": "tsx scripts/bench-search.ts",
+    "sim:env": "tsx scripts/sim-env.ts",
+    "sim:serial": "tsx scripts/sim-serial.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
